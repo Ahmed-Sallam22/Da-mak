@@ -1,0 +1,144 @@
+{
+  "login": {
+    "title": "tickety.",
+    "heading": "Manage",
+    "headingHighlight": "Your",
+    "headingSuffix": "Support Tickets",
+    "description": "Sign in to create, track, and manage support tickets efficiently. Stay organized, respond faster, and ensure issues are resolved on time.",
+    "username": "Username",
+    "usernamePlaceholder": "Enter your Username",
+    "password": "Password",
+    "passwordPlaceholder": "Enter your Password",
+    "forgotPassword": "Forgot Password ?",
+    "loginButton": "Login",
+    "alreadyHaveAccount": "Already have an account?",
+    "signIn": "Sign In"
+  },
+  "forgotPassword": {
+    "title": "Forgot",
+    "titleSuffix": "Password ?",
+    "description": "No worries, we'll send you reset instructions",
+    "email": "Email",
+    "emailPlaceholder": "Abimanyu@npoint.com",
+    "continueButton": "Continue"
+  },
+  "otp": {
+    "title": "OTP",
+    "description": "We've sent a 6-digit code to your email.",
+    "didntGetCode": "Didn't get the code?",
+    "resend": "Resend",
+    "sendCodeAgain": "Send code again",
+    "verifyButton": "Verify"
+  },
+  "resetPassword": {
+    "title": "Reset Your",
+    "titleHighlight": "Password",
+    "description": "Create a new password to access your account.",
+    "enterNewPassword": "Enter New Password",
+    "enterNewPasswordPlaceholder": "Enter New Password",
+    "confirmPassword": "Confirm Password",
+    "confirmPasswordPlaceholder": "Confirm Password",
+    "confirmButton": "Confirm"
+  },
+  "common": {
+    "loading": "Loading...",
+    "error": "An error occurred",
+    "success": "Success"
+  },
+  "toast": {
+    "emailSent": "Reset instructions sent to your email!",
+    "otpVerified": "OTP verified successfully!",
+    "passwordReset": "Password reset successfully!",
+    "invalidOtp": "Invalid OTP code",
+    "passwordMismatch": "Passwords do not match",
+    "fillAllFields": "Please fill all fields"
+  },
+  "myTickets": {
+    "title": "My Tickets",
+    "createButton": "Create Ticket",
+    "searchPlaceholder": "Search by project name or title...",
+    "table": {
+      "project": "Project",
+      "title": "Title",
+      "category": "Category",
+      "priority": "Priority",
+      "status": "Status"
+    },
+    "categories": {
+      "bug": "BUG",
+      "feature": "FEATURE",
+      "support": "SUPPORT"
+    },
+    "priorities": {
+      "high": "High",
+      "medium": "Medium",
+      "low": "Low"
+    },
+    "statuses": {
+      "new": "New",
+      "resolved": "Resolved",
+      "waiting": "Waiting Approval"
+    },
+    "noTickets": "No tickets found. Create your first ticket to get started!",
+    "noResults": "No tickets match your search."
+  },
+  "navbar": {
+    "tickets": "Tickets",
+    "userManagement": "User Management",
+    "lorem": "Lorem",
+    "settings": "Settings",
+    "profile": "My Profile",
+    "logout": "Logout"
+  },
+  "ticketsBoard": {
+    "title": "Tickets Board",
+    "new": "New",
+    "open": "Open",
+    "inProgress": "in Progress",
+    "waitingApproval": "Waiting Approval",
+    "closed": "Closed",
+    "rejected": "Rejected",
+    "noItems": "No Open Items."
+  },
+  "userManagement": {
+    "title": "User Management",
+    "createButton": "Create User",
+    "searchPlaceholder": "Search by project name or title...",
+    "createNewUser": "Create New User",
+    "username": "Username",
+    "email": "Email",
+    "firstName": "First Name",
+    "lastName": "Last Name",
+    "role": "Role",
+    "department": "Department",
+    "phone": "Phone Number",
+    "whatsapp": "Whatsapp Number",
+    "password": "Password",
+    "confirmPassword": "Confirm Password",
+    "status": "Status",
+    "cancel": "Cancel",
+    "createUser": "Create User",
+    "enterUsername": "Enter Username",
+    "enterEmail": "Enter Email",
+    "enterFirstName": "Enter First Name",
+    "enterLastName": "Enter Last Name",
+    "selectRole": "Select Role",
+    "selectDepartment": "Select Department",
+    "enterPassword": "Enter Password",
+    "fullName": "Full Name",
+    "roles": "Roles",
+    "active": "Active",
+    "inactive": "Inactive"
+  },
+  "notFound": {
+    "pageTitle": "404 - Page Not Found",
+    "title": "Page Not Found",
+    "description": "The page you're looking for doesn't exist or has been moved. Let's get you back on track.",
+    "goHome": "Go to Home",
+    "goBack": "Go Back",
+    "helpText": "Need help finding something?",
+    "viewTickets": "View Tickets",
+    "settings": "Settings",
+    "contactSupport": "Contact Support"
+  }
+}

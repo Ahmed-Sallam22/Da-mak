@@ -1,0 +1,144 @@
+{
+  "login": {
+    "title": "تيكتي.",
+    "heading": "إدارة",
+    "headingHighlight": "تذاكر",
+    "headingSuffix": "الدعم الخاصة بك",
+    "description": "سجّل الدخول لإنشاء وتتبع وإدارة تذاكر الدعم بكفاءة. ابق منظمًا، واستجب بشكل أسرع، وتأكد من حل المشكلات في الوقت المحدد.",
+    "username": "اسم المستخدم",
+    "usernamePlaceholder": "أدخل اسم المستخدم",
+    "password": "كلمة المرور",
+    "passwordPlaceholder": "أدخل كلمة المرور",
+    "forgotPassword": "نسيت كلمة المرور؟",
+    "loginButton": "تسجيل الدخول",
+    "alreadyHaveAccount": "هل لديك حساب بالفعل؟",
+    "signIn": "تسجيل الدخول"
+  },
+  "forgotPassword": {
+    "title": "نسيت",
+    "titleSuffix": "كلمة المرور؟",
+    "description": "لا تقلق، سنرسل لك تعليمات إعادة التعيين",
+    "email": "البريد الإلكتروني",
+    "emailPlaceholder": "Abimanyu@npoint.com",
+    "continueButton": "متابعة"
+  },
+  "otp": {
+    "title": "رمز التحقق",
+    "description": "لقد أرسلنا رمزًا مكونًا من 6 أرقام إلى بريدك الإلكتروني.",
+    "didntGetCode": "لم تحصل على الرمز؟",
+    "resend": "إعادة إرسال",
+    "sendCodeAgain": "أرسل الرمز مرة أخرى",
+    "verifyButton": "تحقق"
+  },
+  "resetPassword": {
+    "title": "إعادة تعيين",
+    "titleHighlight": "كلمة المرور",
+    "description": "أنشئ كلمة مرور جديدة للوصول إلى حسابك.",
+    "enterNewPassword": "أدخل كلمة المرور الجديدة",
+    "enterNewPasswordPlaceholder": "أدخل كلمة المرور الجديدة",
+    "confirmPassword": "تأكيد كلمة المرور",
+    "confirmPasswordPlaceholder": "تأكيد كلمة المرور",
+    "confirmButton": "تأكيد"
+  },
+  "common": {
+    "loading": "جاري التحميل...",
+    "error": "حدث خطأ",
+    "success": "تم بنجاح"
+  },
+  "toast": {
+    "emailSent": "تم إرسال تعليمات إعادة التعيين إلى بريدك الإلكتروني!",
+    "otpVerified": "تم التحقق من الرمز بنجاح!",
+    "passwordReset": "تم إعادة تعيين كلمة المرور بنجاح!",
+    "invalidOtp": "رمز التحقق غير صحيح",
+    "passwordMismatch": "كلمات المرور غير متطابقة",
+    "fillAllFields": "يرجى ملء جميع الحقول"
+  },
+  "myTickets": {
+    "title": "تذاكري",
+    "createButton": "إنشاء تذكرة",
+    "searchPlaceholder": "البحث حسب اسم المشروع أو العنوان...",
+    "table": {
+      "project": "المشروع",
+      "title": "العنوان",
+      "category": "الفئة",
+      "priority": "الأولوية",
+      "status": "الحالة"
+    },
+    "categories": {
+      "bug": "خطأ",
+      "feature": "ميزة",
+      "support": "دعم"
+    },
+    "priorities": {
+      "high": "عالية",
+      "medium": "متوسطة",
+      "low": "منخفضة"
+    },
+    "statuses": {
+      "new": "جديدة",
+      "resolved": "محلولة",
+      "waiting": "في انتظار الموافقة"
+    },
+    "noTickets": "لم يتم العثور على تذاكر. أنشئ تذكرتك الأولى للبدء!",
+    "noResults": "لا توجد تذاكر تطابق بحثك."
+  },
+  "navbar": {
+    "tickets": "التذاكر",
+    "userManagement": "إدارة المستخدمين",
+    "lorem": "لوريم",
+    "settings": "الإعدادات",
+    "profile": "حسابي",
+    "logout": "تسجيل الخروج"
+  },
+  "ticketsBoard": {
+    "title": "لوحة التذاكر",
+    "new": "جديد",
+    "open": "مفتوح",
+    "inProgress": "قيد التنفيذ",
+    "waitingApproval": "في انتظار الموافقة",
+    "closed": "مغلق",
+    "rejected": "مرفوض",
+    "noItems": "لا توجد عناصر."
+  },
+  "userManagement": {
+    "title": "إدارة المستخدمين",
+    "createButton": "إنشاء مستخدم",
+    "searchPlaceholder": "البحث حسب اسم المشروع أو العنوان...",
+    "createNewUser": "إنشاء مستخدم جديد",
+    "username": "اسم المستخدم",
+    "email": "البريد الإلكتروني",
+    "firstName": "الاسم الأول",
+    "lastName": "اسم العائلة",
+    "role": "الدور",
+    "department": "القسم",
+    "phone": "رقم الهاتف",
+    "whatsapp": "رقم الواتساب",
+    "password": "كلمة المرور",
+    "confirmPassword": "تأكيد كلمة المرور",
+    "status": "الحالة",
+    "cancel": "إلغاء",
+    "createUser": "إنشاء مستخدم",
+    "enterUsername": "أدخل اسم المستخدم",
+    "enterEmail": "أدخل البريد الإلكتروني",
+    "enterFirstName": "أدخل الاسم الأول",
+    "enterLastName": "أدخل اسم العائلة",
+    "selectRole": "اختر الدور",
+    "selectDepartment": "اختر القسم",
+    "enterPassword": "أدخل كلمة المرور",
+    "fullName": "الاسم الكامل",
+    "roles": "الأدوار",
+    "active": "نشط",
+    "inactive": "غير نشط"
+  },
+  "notFound": {
+    "pageTitle": "404 - الصفحة غير موجودة",
+    "title": "الصفحة غير موجودة",
+    "description": "الصفحة التي تبحث عنها غير موجودة أو تم نقلها. دعنا نعيدك إلى المسار الصحيح.",
+    "goHome": "الذهاب للرئيسية",
+    "goBack": "العودة",
+    "helpText": "هل تحتاج مساعدة في العثور على شيء؟",
+    "viewTickets": "عرض التذاكر",
+    "settings": "الإعدادات",
+    "contactSupport": "تواصل مع الدعم"
+  }
+}
