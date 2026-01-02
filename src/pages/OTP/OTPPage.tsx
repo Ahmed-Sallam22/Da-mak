@@ -15,7 +15,7 @@ const OTPPage: React.FC = () => {
 
   const canResend = countdown === 0;
 
-  usePageTitle(`${t("otp.title")} - Tickety`);
+  usePageTitle(`${t("otp.title")}`);
 
   useEffect(() => {
     if (countdown > 0) {

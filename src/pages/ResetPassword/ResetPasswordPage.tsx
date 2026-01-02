@@ -15,7 +15,7 @@ const ResetPasswordPage: React.FC = () => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
-  usePageTitle(`${t("resetPassword.title")} - Tickety`);
+  usePageTitle(`${t("resetPassword.title")}`);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

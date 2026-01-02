@@ -13,7 +13,7 @@ const LoginPage: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
 
   // Set page title
-  usePageTitle(`${t("login.loginButton")} - Tickety`);
+  usePageTitle(`${t("login.loginButton")}`);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

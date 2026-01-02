@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 
-const SITE_NAME = "Da'mak - دعمك";
+const SITE_NAME = "Da'mak";
 
 export const usePageTitle = (pageTitle: string) => {
   useEffect(() => {

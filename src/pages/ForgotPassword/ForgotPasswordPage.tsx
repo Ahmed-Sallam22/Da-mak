@@ -11,7 +11,7 @@ const ForgotPasswordPage: React.FC = () => {
   const [email, setEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
 
-  usePageTitle(`${t("forgotPassword.title")} - Tickety`);
+  usePageTitle(`${t("forgotPassword.title")}`);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
