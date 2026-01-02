@@ -10,6 +10,7 @@ import {
   TicketsBoardPage,
   OrganizationsPage,
   OrganizationDetailsPage,
+  TicketDetailsPage,
 } from "./pages";
 import { MainLayout } from "./layouts";
 
@@ -26,6 +27,7 @@ function App() {
         {/* Authenticated Routes - With Layout (Navbar) */}
         <Route element={<MainLayout notificationCount={3} />}>
           <Route path="/tickets" element={<MyTicketsPage />} />
+          <Route path="/tickets/:id" element={<TicketDetailsPage />} />
           <Route path="/tickets-board" element={<TicketsBoardPage />} />
           <Route path="/user-management" element={<UserManagementPage />} />
           <Route path="/organizations" element={<OrganizationsPage />} />

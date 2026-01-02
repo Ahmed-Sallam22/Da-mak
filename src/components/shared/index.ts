@@ -9,3 +9,4 @@ export { default as SearchBar } from './SearchBar';
 export { default as Badge } from './Badge';
 export { default as Navbar } from './Navbar';
 export { default as SearchableSelect } from './SearchableSelect';
+export { default as TicketCard } from './TicketCard';

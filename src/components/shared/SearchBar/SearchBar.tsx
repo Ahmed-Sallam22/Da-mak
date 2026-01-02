@@ -9,30 +9,40 @@ const SearchBar: React.FC<SearchBarProps> = ({
   showViewToggle = true,
 }) => {
   return (
-    <div className="flex items-center gap-3 mt-3 w-[98%] mx-auto">
+    <div className="flex items-center justify-between gap-3 mt-3 w-[98%] mx-auto">
       {/* Search Input */}
-      <div className="flex-1 relative">
-        <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none">
+      <div className="w-[40%] relative">
+        <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none z-10">
           <svg
-            className="w-5 h-5 text-gray"
-            fill="none"
-            stroke="currentColor"
+            width="24"
+            height="24"
             viewBox="0 0 24 24"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
           >
             <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+              d="M11.8486 19.0142C15.7798 19.0142 18.9666 15.8274 18.9666 11.8962C18.9666 7.96495 15.7798 4.77808 11.8486 4.77808C7.91734 4.77808 4.73047 7.96495 4.73047 11.8962C4.73047 15.8274 7.91734 19.0142 11.8486 19.0142Z"
+              stroke="#525866"
+              stroke-width="1.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            />
+            <path
+              d="M16.7988 17.2166L19.5895 20"
+              stroke="#525866"
+              stroke-width="1.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
             />
           </svg>
         </div>
+
         <input
           type="text"
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
-          className="w-[40%] pl-12 pr-20 py-3 bg-white border border-[#E1E4EA] rounded-xl
+          className="w-full relative pl-12 pr-20 py-3 bg-white border border-[#E1E4EA] rounded-xl
                      text-sm text-dark placeholder:text-placeholder
                      focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary
                      transition-all duration-150"

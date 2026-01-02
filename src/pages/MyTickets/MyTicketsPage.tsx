@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import {
   PageHeader,
@@ -6,7 +7,10 @@ import {
   Table,
   Pagination,
   Badge,
+  TicketCard,
 } from "../../components/shared";
+import CreateTicketModal from "./components/CreateTicketModal";
+import type { TicketFormData } from "./components/CreateTicketModal";
 import type { TableColumn } from "../../components/shared/Table/Table.types";
 import type { SortDirection } from "../../components/shared/Table/Table.types";
 import type { Ticket } from "../../types/ticket";
@@ -15,6 +19,7 @@ import { usePageTitle } from "../../hooks/usePageTitle";
 
 const MyTicketsPage: React.FC = () => {
   const { t } = useTranslation();
+  const navigate = useNavigate();
 
   // Set page title
   usePageTitle(t("myTickets.title"));
@@ -23,9 +28,10 @@ const MyTicketsPage: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
-  const [currentView, setCurrentView] = useState<"list" | "grid">("grid");
+  const [currentView, setCurrentView] = useState<"list" | "grid">("list");
   const [sortKey, setSortKey] = useState<string>("");
   const [sortDirection, setSortDirection] = useState<SortDirection>(null);
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
   // Handle sorting
   const handleSort = (columnKey: string, direction: SortDirection) => {
@@ -86,16 +92,19 @@ const MyTicketsPage: React.FC = () => {
 
   // Handle ticket row click
   const handleTicketClick = (ticket: Ticket) => {
-    console.log("Ticket clicked:", ticket);
-    // Navigate to ticket detail page (to be implemented)
-    // navigate(`/tickets/${ticket.id}`);
+    navigate(`/tickets/${ticket.id}`);
   };
 
   // Handle create ticket button
   const handleCreateTicket = () => {
-    console.log("Create ticket clicked");
-    // Navigate to create ticket page (to be implemented)
-    // navigate('/tickets/create');
+    setIsCreateModalOpen(true);
+  };
+
+  // Handle create ticket submit
+  const handleSubmitTicket = (data: TicketFormData) => {
+    console.log("Ticket created:", data);
+    // TODO: Add API call to create ticket
+    setIsCreateModalOpen(false);
   };
 
   // Define table columns
@@ -173,8 +182,8 @@ const MyTicketsPage: React.FC = () => {
           onButtonClick={handleCreateTicket}
         />
 
-        {/* Table */}
-        <div className="bg-white rounded-xl  overflow-hidden">
+        {/* Content */}
+        <div className="bg-white rounded-xl overflow-hidden">
           {/* Search Bar with View Toggle */}
           <SearchBar
             value={searchQuery}
@@ -183,17 +192,49 @@ const MyTicketsPage: React.FC = () => {
             currentView={currentView}
             onViewChange={setCurrentView}
           />
-          <Table<Ticket>
-            data={paginatedTickets}
-            columns={columns}
-            onRowClick={handleTicketClick}
-            sortable={true}
-            resizable={true}
-            onSort={handleSort}
-            emptyMessage={
-              searchQuery ? t("myTickets.noResults") : t("myTickets.noTickets")
-            }
-          />
+
+          {/* Grid View */}
+          {currentView === "grid" && (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 p-6">
+                {paginatedTickets.map((ticket) => (
+                  <TicketCard
+                    key={ticket.id}
+                    ticket={ticket}
+                    onClick={() => handleTicketClick(ticket)}
+                  />
+                ))}
+              </div>
+
+              {/* Empty State for Grid */}
+              {paginatedTickets.length === 0 && (
+                <div className="text-center py-12">
+                  <p className="text-gray">
+                    {searchQuery
+                      ? t("myTickets.noResults")
+                      : t("myTickets.noTickets")}
+                  </p>
+                </div>
+              )}
+            </>
+          )}
+
+          {/* List/Table View */}
+          {currentView === "list" && (
+            <Table<Ticket>
+              data={paginatedTickets}
+              columns={columns}
+              onRowClick={handleTicketClick}
+              sortable={true}
+              resizable={true}
+              onSort={handleSort}
+              emptyMessage={
+                searchQuery
+                  ? t("myTickets.noResults")
+                  : t("myTickets.noTickets")
+              }
+            />
+          )}
 
           {/* Pagination */}
           {filteredTickets.length > 0 && (
@@ -210,6 +251,13 @@ const MyTicketsPage: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* Create Ticket Modal */}
+      <CreateTicketModal
+        isOpen={isCreateModalOpen}
+        onClose={() => setIsCreateModalOpen(false)}
+        onSubmit={handleSubmitTicket}
+      />
     </div>
   );
 };
