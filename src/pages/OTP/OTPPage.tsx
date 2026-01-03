@@ -1,21 +1,83 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { Button, OTPInput } from "../../components/shared";
 import { usePageTitle } from "../../hooks";
-import { showToast } from "../../utils";
+import { LogoIcon } from "../../assets/icons";
+import { useAppDispatch, useAppSelector } from "../../store/hooks";
+import {
+  verifyResetCode,
+  resendResetCode,
+  clearError,
+  clearMessage,
+} from "../../store/slices/passwordResetSlice";
+import toast from "react-hot-toast";
 
 const OTPPage: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const location = useLocation();
+  const dispatch = useAppDispatch();
+  const {
+    email: storedEmail,
+    loading,
+    error,
+    message,
+    resetToken,
+  } = useAppSelector((state) => state.passwordReset);
 
   const [otp, setOtp] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
   const [countdown, setCountdown] = useState(60);
+  const hasNavigatedRef = useRef(false);
 
   const canResend = countdown === 0;
 
+  // Get email from location state or Redux store
+  const email = (location.state as { email?: string })?.email || storedEmail;
+
   usePageTitle(`${t("otp.title")}`);
+
+  // Clear any previous messages on mount
+  useEffect(() => {
+    dispatch(clearMessage());
+    dispatch(clearError());
+    hasNavigatedRef.current = false;
+  }, [dispatch]);
+
+  // Redirect if no email
+  useEffect(() => {
+    if (!email) {
+      toast.error("Please enter your email first");
+      navigate("/forgot-password");
+    }
+  }, [email, navigate]);
+
+  // Handle successful verification
+  useEffect(() => {
+    if (resetToken && message && !hasNavigatedRef.current) {
+      hasNavigatedRef.current = true;
+      toast.success(message);
+      setTimeout(() => {
+        navigate("/reset-password");
+      }, 500);
+    }
+  }, [resetToken, message, navigate]);
+
+  // Show error messages
+  useEffect(() => {
+    if (error) {
+      toast.error(error);
+      dispatch(clearError());
+    }
+  }, [error, dispatch]);
+
+  // Show resend success message (only for resend, not for verify)
+  useEffect(() => {
+    if (message && !resetToken && !hasNavigatedRef.current) {
+      toast.success(message);
+      dispatch(clearMessage());
+    }
+  }, [message, resetToken, dispatch]);
 
   useEffect(() => {
     if (countdown > 0) {
@@ -28,30 +90,37 @@ const OTPPage: React.FC = () => {
     e.preventDefault();
 
     if (otp.length !== 6) {
-      showToast.error(t("toast.fillAllFields"));
+      toast.error("Please enter the complete 6-digit code");
       return;
     }
 
-    setIsLoading(true);
+    if (!email) {
+      toast.error("Email is missing");
+      return;
+    }
 
-    // Simulate API call
-    setTimeout(() => {
-      setIsLoading(false);
-      if (otp === "W8FB66") {
-        showToast.success(t("toast.otpVerified"));
-        navigate("/reset-password");
-      } else {
-        showToast.error(t("toast.invalidOtp"));
-      }
-    }, 1500);
+    try {
+      await dispatch(verifyResetCode({ email, code: otp })).unwrap();
+    } catch {
+      // Error is handled by useEffect
+    }
   };
 
-  const handleResend = () => {
+  const handleResend = async () => {
     if (!canResend) return;
 
-    showToast.success(t("toast.emailSent"));
-    setCountdown(60);
-    setOtp("");
+    if (!email) {
+      toast.error("Email is missing");
+      return;
+    }
+
+    try {
+      await dispatch(resendResetCode({ email })).unwrap();
+      setCountdown(60);
+      setOtp("");
+    } catch {
+      // Error is handled by useEffect
+    }
   };
 
   const formatTime = (seconds: number) => {
@@ -64,13 +133,9 @@ const OTPPage: React.FC = () => {
     <div className="min-h-screen w-full bg-[#F5F7FA] flex items-center justify-center p-4 sm:p-6 md:p-8">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-sm p-6 sm:p-8">
         {/* Logo */}
-        <h1 className="text-2xl sm:text-3xl font-bold text-center mb-4 sm:mb-6 italic">
-          <span className="text-primary">
-            {t("login.title").replace(".", "")}
-          </span>
-          <span className="text-primary">.</span>
-        </h1>
-
+        <div className="flex justify-center mb-4">
+          <LogoIcon />
+        </div>
         {/* Heading */}
         <h2 className="text-2xl sm:text-3xl font-bold text-center text-primary mb-2">
           {t("otp.title")}
@@ -111,7 +176,7 @@ const OTPPage: React.FC = () => {
             type="submit"
             fullWidth
             size="md"
-            isLoading={isLoading}
+            isLoading={loading}
           />
 
           {/* Sign In Link */}
@@ -121,7 +186,7 @@ const OTPPage: React.FC = () => {
             </span>
             <button
               type="button"
-              onClick={() => navigate("/")}
+              onClick={() => navigate("/login")}
               className="text-xs sm:text-sm text-primary hover:underline font-medium"
             >
               {t("login.signIn")}

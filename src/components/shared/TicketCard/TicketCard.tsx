@@ -1,5 +1,6 @@
 import React from "react";
 import Badge from "../Badge/Badge";
+import type { BadgeVariant } from "../Badge/Badge.types";
 import type { Ticket } from "../../../types/ticket";
 
 interface TicketCardProps {
@@ -39,7 +40,7 @@ const TicketCard: React.FC<TicketCardProps> = ({ ticket, onClick }) => {
       <div className="mb-1">
         <span className="text-xs text-gray">Project Name</span>
         <h3 className="text-base font-semibold text-dark mt-1 line-clamp-1">
-          {ticket.project}
+          {ticket.project_name_display || ticket.project_name || "-"}
         </h3>
       </div>
 
@@ -50,9 +51,15 @@ const TicketCard: React.FC<TicketCardProps> = ({ ticket, onClick }) => {
 
       {/* Badges Row */}
       <div className="flex items-center gap-2 flex-wrap">
-        <Badge variant={ticket.status}>{ticket.status}</Badge>
-        <Badge variant={ticket.priority}>{ticket.priority}</Badge>
-        <Badge variant={ticket.category}>{ticket.category}</Badge>
+        <Badge variant={ticket.status as BadgeVariant}>
+          {ticket.status_display || ticket.status}
+        </Badge>
+        <Badge variant={ticket.priority as BadgeVariant}>
+          {ticket.priority_display || ticket.priority}
+        </Badge>
+        <Badge variant={ticket.category as BadgeVariant}>
+          {ticket.category_display || ticket.category}
+        </Badge>
       </div>
     </div>
   );

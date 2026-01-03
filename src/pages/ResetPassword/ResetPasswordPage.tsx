@@ -1,60 +1,117 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { Button, Input } from "../../components/shared";
-import { EyeIcon, EyeSlashIcon } from "../../assets/icons";
+import { EyeIcon, EyeSlashIcon, LogoIcon } from "../../assets/icons";
 import { usePageTitle } from "../../hooks";
-import { showToast } from "../../utils";
+import { useAppDispatch, useAppSelector } from "../../store/hooks";
+import {
+  resetPassword,
+  clearError,
+  clearPasswordResetState,
+} from "../../store/slices/passwordResetSlice";
+import toast from "react-hot-toast";
 
 const ResetPasswordPage: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
+  const { resetToken, loading, error, message } = useAppSelector(
+    (state) => state.passwordReset
+  );
+
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
+  const hasNavigatedRef = useRef(false);
+  const hasCheckedTokenRef = useRef(false);
 
   usePageTitle(`${t("resetPassword.title")}`);
+
+  // Clear any previous messages on mount
+  useEffect(() => {
+    dispatch(clearError());
+    hasNavigatedRef.current = false;
+    hasCheckedTokenRef.current = false;
+  }, [dispatch]);
+
+  // Redirect if no reset token
+  useEffect(() => {
+    if (!hasCheckedTokenRef.current) {
+      hasCheckedTokenRef.current = true;
+      if (!resetToken) {
+        toast.error("Invalid or expired reset session. Please start over.");
+        setTimeout(() => {
+          navigate("/forgot-password");
+        }, 1000);
+      }
+    }
+  }, [resetToken, navigate]);
+
+  // Handle successful password reset
+  useEffect(() => {
+    if (message && !error && !hasNavigatedRef.current) {
+      hasNavigatedRef.current = true;
+      toast.success(message);
+      dispatch(clearPasswordResetState());
+      setTimeout(() => {
+        navigate("/login");
+      }, 1000);
+    }
+  }, [message, error, dispatch, navigate]);
+
+  // Show error messages
+  useEffect(() => {
+    if (error) {
+      toast.error(error);
+      dispatch(clearError());
+    }
+  }, [error, dispatch]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!newPassword || !confirmPassword) {
-      showToast.error(t("toast.fillAllFields"));
+      toast.error(t("toast.fillAllFields"));
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      showToast.error(t("toast.passwordMismatch"));
+      toast.error(t("toast.passwordMismatch"));
       return;
     }
 
     if (newPassword.length < 8) {
-      showToast.error("Password must be at least 8 characters");
+      toast.error("Password must be at least 8 characters");
       return;
     }
 
-    setIsLoading(true);
+    if (!resetToken) {
+      toast.error("Reset token is missing");
+      return;
+    }
 
-    // Simulate API call
-    setTimeout(() => {
-      setIsLoading(false);
-      showToast.success(t("toast.passwordReset"));
-      navigate("/");
-    }, 1500);
+    try {
+      await dispatch(
+        resetPassword({
+          reset_token: resetToken,
+          new_password: newPassword,
+          confirm_password: confirmPassword,
+        })
+      ).unwrap();
+    } catch {
+      // Error is handled by useEffect
+    }
   };
 
   return (
     <div className="min-h-screen w-full bg-[#F5F7FA] flex items-center justify-center p-4 sm:p-6 md:p-8">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-sm p-6 sm:p-8">
         {/* Logo */}
-        <h1 className="text-2xl sm:text-3xl font-bold text-center mb-4 sm:mb-6 italic">
-          <span className="text-primary">
-            {t("login.title").replace(".", "")}
-          </span>
-          <span className="text-primary">.</span>
-        </h1>
+        <div className="flex justify-center mb-4">
+          <LogoIcon />
+        </div>
 
         {/* Heading */}
         <h2 className="text-2xl sm:text-3xl font-bold text-center text-dark mb-2">
@@ -97,7 +154,7 @@ const ResetPasswordPage: React.FC = () => {
             type="submit"
             fullWidth
             size="md"
-            isLoading={isLoading}
+            isLoading={loading}
           />
 
           {/* Sign In Link */}

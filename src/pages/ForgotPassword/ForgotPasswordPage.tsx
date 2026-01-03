@@ -1,46 +1,86 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { Button, Input } from "../../components/shared";
 import { usePageTitle } from "../../hooks";
-import { showToast } from "../../utils";
+import { LogoIcon } from "../../assets/icons";
+import { useAppDispatch, useAppSelector } from "../../store/hooks";
+import {
+  forgotPassword,
+  setEmail as setResetEmail,
+  clearError,
+  clearMessage,
+} from "../../store/slices/passwordResetSlice";
+import toast from "react-hot-toast";
 
 const ForgotPasswordPage: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
+  const { loading, error, message } = useAppSelector(
+    (state) => state.passwordReset
+  );
+
   const [email, setEmail] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+  const hasNavigatedRef = useRef(false);
 
   usePageTitle(`${t("forgotPassword.title")}`);
+
+  // Clear any previous messages on mount
+  useEffect(() => {
+    dispatch(clearMessage());
+    dispatch(clearError());
+  }, [dispatch]);
+
+  // Show success/error messages
+  useEffect(() => {
+    if (message && !hasNavigatedRef.current) {
+      hasNavigatedRef.current = true;
+      toast.success(message);
+      // Store email and navigate to OTP page
+      dispatch(setResetEmail(email));
+      setTimeout(() => {
+        navigate("/otp", { state: { email } });
+      }, 500);
+    }
+  }, [message, email, dispatch, navigate]);
+
+  useEffect(() => {
+    if (error) {
+      toast.error(error);
+      dispatch(clearError());
+    }
+  }, [error, dispatch]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!email) {
-      showToast.error(t("toast.fillAllFields"));
+      toast.error(t("toast.fillAllFields"));
       return;
     }
 
-    setIsLoading(true);
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      toast.error("Please enter a valid email address");
+      return;
+    }
 
-    // Simulate API call
-    setTimeout(() => {
-      setIsLoading(false);
-      showToast.success(t("toast.emailSent"));
-      navigate("/otp", { state: { email } });
-    }, 1500);
+    try {
+      await dispatch(forgotPassword({ email })).unwrap();
+    } catch {
+      // Error is handled by useEffect
+    }
   };
 
   return (
     <div className="min-h-screen w-full bg-[#F5F7FA] flex items-center justify-center p-4 sm:p-6 md:p-8">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-sm p-6 sm:p-8">
         {/* Logo */}
-        <h1 className="text-2xl sm:text-3xl font-bold text-center mb-4 sm:mb-6 italic">
-          <span className="text-primary">
-            {t("login.title").replace(".", "")}
-          </span>
-          <span className="text-primary">.</span>
-        </h1>
+        <div className="flex justify-center mb-4">
+          <LogoIcon />
+        </div>
 
         {/* Heading */}
         <h2 className="text-2xl sm:text-3xl font-bold text-center text-dark mb-2">
@@ -69,7 +109,7 @@ const ForgotPasswordPage: React.FC = () => {
             type="submit"
             fullWidth
             size="md"
-            isLoading={isLoading}
+            isLoading={loading}
           />
 
           {/* Sign In Link */}
@@ -79,7 +119,7 @@ const ForgotPasswordPage: React.FC = () => {
             </span>
             <button
               type="button"
-              onClick={() => navigate("/")}
+              onClick={() => navigate("/login")}
               className="text-xs sm:text-sm text-primary hover:underline font-medium"
             >
               {t("login.signIn")}

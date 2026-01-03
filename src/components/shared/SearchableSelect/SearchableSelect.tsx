@@ -123,7 +123,7 @@ const SearchableSelect: React.FC<SearchableSelectProps> = ({
 
         {/* Dropdown Menu */}
         {isOpen && (
-          <div className="absolute z-50 w-full mt-2 bg-white rounded-xl shadow-lg border border-[#E1E4EA] py-2 animate-in fade-in zoom-in-95 duration-100">
+          <div className="absolute z-100 w-full mt-2 bg-white rounded-xl shadow-lg border border-[#E1E4EA] py-2 animate-in fade-in zoom-in-95 duration-100">
             {/* Search Input */}
             <div className="px-3 pb-2">
               <div className="relative">

@@ -7,11 +7,13 @@ import type { Ticket } from "../TicketsBoardPage";
 interface TicketCardProps {
   ticket: Ticket;
   isDragging?: boolean;
+  onTicketClick?: (ticketId: number) => void;
 }
 
 const TicketCard: React.FC<TicketCardProps> = ({
   ticket,
   isDragging = false,
+  onTicketClick,
 }) => {
   const {
     attributes,
@@ -26,6 +28,13 @@ const TicketCard: React.FC<TicketCardProps> = ({
     transform: CSS.Transform.toString(transform),
     transition,
     opacity: isSortableDragging ? 0.5 : 1,
+  };
+
+  const handleClick = () => {
+    // Only trigger click when not dragging
+    if (!isDragging && !isSortableDragging && onTicketClick) {
+      onTicketClick(ticket.id);
+    }
   };
 
   const getPriorityVariant = (priority: string) => {
@@ -54,10 +63,26 @@ const TicketCard: React.FC<TicketCardProps> = ({
     }
   };
 
-  const getStatusText = (status: string) => {
+  const getStatusText = (status: string, statusDisplay?: string) => {
+    // Use status_display from API if available
+    if (statusDisplay) {
+      return statusDisplay;
+    }
+
+    // Fallback to formatting the status code
     switch (status) {
-      case "open":
-        return "Open";
+      case "NEW":
+        return "New";
+      case "OPENED":
+        return "Opened";
+      case "IN_PROGRESS":
+        return "In Progress";
+      case "RESOLVED":
+        return "Resolved";
+      case "CLOSED":
+        return "Closed";
+      case "REJECTED":
+        return "Rejected";
       default:
         return status;
     }
@@ -69,6 +94,7 @@ const TicketCard: React.FC<TicketCardProps> = ({
       style={style}
       {...attributes}
       {...listeners}
+      onClick={handleClick}
       className={`bg-white rounded-lg p-4 shadow-sm border border-[#E1E4EA] cursor-grab active:cursor-grabbing hover:shadow-md transition-shadow ${
         isDragging ? "rotate-2 shadow-lg" : ""
       }`}
@@ -101,7 +127,7 @@ const TicketCard: React.FC<TicketCardProps> = ({
 
       <div className="flex items-center gap-2 flex-wrap">
         <span className="text-xs text-gray px-2 py-1 bg-[#F8F9FC] rounded">
-          {getStatusText(ticket.status)}
+          {getStatusText(ticket.status, ticket.status_display)}
         </span>
         <Badge variant={getPriorityVariant(ticket.priority)}>
           {ticket.priority}

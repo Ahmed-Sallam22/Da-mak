@@ -1,13 +1,22 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { Button, Input } from "../../components/shared";
-import { EyeIcon, EyeSlashIcon } from "../../assets/icons";
+import { EyeIcon, EyeSlashIcon, LogoIcon } from "../../assets/icons";
 import { usePageTitle } from "../../hooks";
+import { useAppDispatch, useAppSelector } from "../../store/hooks";
+import { loginUser, clearError } from "../../store/slices/authSlice";
+import toast from "react-hot-toast";
 
 const LoginPage: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const location = useLocation();
+  const dispatch = useAppDispatch();
+  const { loading, error, isAuthenticated } = useAppSelector(
+    (state) => state.auth
+  );
+
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -15,22 +24,48 @@ const LoginPage: React.FC = () => {
   // Set page title
   usePageTitle(`${t("login.loginButton")}`);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (isAuthenticated) {
+      const from =
+        (location.state as { from?: { pathname: string } })?.from?.pathname ||
+        "/dashboard";
+      navigate(from, { replace: true });
+    }
+  }, [isAuthenticated, navigate, location]);
+
+  // Show error toast
+  useEffect(() => {
+    if (error) {
+      toast.error(error);
+      dispatch(clearError());
+    }
+  }, [error, dispatch]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Handle login logic here
-    console.log("Login attempt:", { username, password });
+
+    if (!username || !password) {
+      toast.error("Please enter both username and password");
+      return;
+    }
+
+    try {
+      await dispatch(loginUser({ username, password })).unwrap();
+      toast.success("Login successful!");
+      // Navigation is handled by the useEffect above
+    } catch {
+      // Error is handled by the useEffect above
+    }
   };
 
   return (
     <div className="min-h-screen w-full bg-[#F5F7FA] flex items-center justify-center p-4 sm:p-6 md:p-8">
       <div className="w-full max-w-md bg-white rounded-2xl shadow-sm p-6 sm:p-8">
         {/* Logo */}
-        <h1 className="text-2xl sm:text-3xl font-bold text-center mb-4 sm:mb-6 italic">
-          <span className="text-primary">
-            {t("login.title").replace(".", "")}
-          </span>
-          <span className="text-primary">.</span>
-        </h1>
+        <div className="flex justify-center mb-4">
+          <LogoIcon />
+        </div>
 
         {/* Heading */}
         <h2 className="text-2xl sm:text-3xl font-bold text-center text-dark mb-2">
@@ -84,6 +119,7 @@ const LoginPage: React.FC = () => {
             type="submit"
             fullWidth
             size="md"
+            disabled={loading}
           />
         </form>
       </div>

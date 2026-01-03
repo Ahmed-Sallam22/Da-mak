@@ -1,5 +1,6 @@
 // Re-export all pages
 export { default as LoginPage } from './Login/LoginPage';
+export { DashboardPage } from './Dashboard';
 export { default as ForgotPasswordPage } from './ForgotPassword';
 export { default as OTPPage } from './OTP';
 export { default as ResetPasswordPage } from './ResetPassword';
