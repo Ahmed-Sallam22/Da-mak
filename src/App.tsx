@@ -19,7 +19,7 @@ import {
   TicketDetailsPage,
 } from "./pages";
 import { MainLayout } from "./layouts";
-import { ProtectedRoute } from "./components/layout";
+import { ProtectedRoute, SuperAdminRoute } from "./components/layout";
 
 function App() {
   return (
@@ -76,25 +76,25 @@ function App() {
           <Route
             path="/user-management"
             element={
-              <ProtectedRoute>
+              <SuperAdminRoute>
                 <UserManagementPage />
-              </ProtectedRoute>
+              </SuperAdminRoute>
             }
           />
           <Route
             path="/organizations"
             element={
-              <ProtectedRoute>
+              <SuperAdminRoute>
                 <OrganizationsPage />
-              </ProtectedRoute>
+              </SuperAdminRoute>
             }
           />
           <Route
             path="/organizations/:id"
             element={
-              <ProtectedRoute>
+              <SuperAdminRoute>
                 <OrganizationDetailsPage />
-              </ProtectedRoute>
+              </SuperAdminRoute>
             }
           />
           <Route
