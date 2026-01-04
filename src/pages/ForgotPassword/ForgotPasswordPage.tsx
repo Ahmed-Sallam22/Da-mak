@@ -23,6 +23,7 @@ const ForgotPasswordPage: React.FC = () => {
 
   const [email, setEmail] = useState("");
   const hasNavigatedRef = useRef(false);
+  const hasShownMessageRef = useRef(false);
 
   usePageTitle(`${t("forgotPassword.title")}`);
 
@@ -30,15 +31,19 @@ const ForgotPasswordPage: React.FC = () => {
   useEffect(() => {
     dispatch(clearMessage());
     dispatch(clearError());
+    hasNavigatedRef.current = false;
+    hasShownMessageRef.current = false;
   }, [dispatch]);
 
   // Show success/error messages
   useEffect(() => {
-    if (message && !hasNavigatedRef.current) {
+    if (message && !hasNavigatedRef.current && !hasShownMessageRef.current) {
       hasNavigatedRef.current = true;
+      hasShownMessageRef.current = true;
       toast.success(message);
       // Store email and navigate to OTP page
       dispatch(setResetEmail(email));
+      dispatch(clearMessage());
       setTimeout(() => {
         navigate("/otp", { state: { email } });
       }, 500);

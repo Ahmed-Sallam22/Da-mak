@@ -29,6 +29,7 @@ const OTPPage: React.FC = () => {
   const [otp, setOtp] = useState("");
   const [countdown, setCountdown] = useState(60);
   const hasNavigatedRef = useRef(false);
+  const hasShownMessageRef = useRef(false);
 
   const canResend = countdown === 0;
 
@@ -42,14 +43,19 @@ const OTPPage: React.FC = () => {
     dispatch(clearMessage());
     dispatch(clearError());
     hasNavigatedRef.current = false;
+    hasShownMessageRef.current = false;
   }, [dispatch]);
 
-  // Redirect if no email
+  // Redirect if no email (only show toast once)
   useEffect(() => {
-    if (!email) {
-      toast.error("Please enter your email first");
-      navigate("/forgot-password");
-    }
+    const timer = setTimeout(() => {
+      if (!email) {
+        toast.error("Please enter your email first");
+        navigate("/forgot-password");
+      }
+    }, 100);
+
+    return () => clearTimeout(timer);
   }, [email, navigate]);
 
   // Handle successful verification
@@ -73,7 +79,13 @@ const OTPPage: React.FC = () => {
 
   // Show resend success message (only for resend, not for verify)
   useEffect(() => {
-    if (message && !resetToken && !hasNavigatedRef.current) {
+    if (
+      message &&
+      !resetToken &&
+      !hasNavigatedRef.current &&
+      !hasShownMessageRef.current
+    ) {
+      hasShownMessageRef.current = true;
       toast.success(message);
       dispatch(clearMessage());
     }
@@ -113,6 +125,9 @@ const OTPPage: React.FC = () => {
       toast.error("Email is missing");
       return;
     }
+
+    // Reset the message flag before resending
+    hasShownMessageRef.current = false;
 
     try {
       await dispatch(resendResetCode({ email })).unwrap();
