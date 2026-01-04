@@ -1,72 +1,150 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useScrollLock } from "../../../hooks/useScrollLock";
+import { SearchableSelect } from "../../../components/shared";
+import api from "../../../services/api";
+import toast from "react-hot-toast";
 
 export interface OrgAccountFormData {
   username: string;
   email: string;
   password: string;
-  confirmPassword: string;
-  firstName: string;
-  lastName: string;
+  password_confirm: string;
+  first_name: string;
+  last_name: string;
   role: string;
-  phone: string;
-  whatsapp: string;
+  phone_number: string;
+  whatsapp_number: string;
   department: string;
+  organization: number;
+}
+
+interface Role {
+  value: string;
+  display: string;
+}
+
+interface RolesResponse {
+  roles: Role[];
 }
 
 interface AddOrgAccountModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (data: OrgAccountFormData) => void;
+  organizationId: number;
 }
 
 const AddOrgAccountModal: React.FC<AddOrgAccountModalProps> = ({
   isOpen,
   onClose,
   onSubmit,
+  organizationId,
 }) => {
   const [formData, setFormData] = useState<OrgAccountFormData>({
     username: "",
     email: "",
     password: "",
-    confirmPassword: "",
-    firstName: "",
-    lastName: "",
-    role: "",
-    phone: "",
-    whatsapp: "",
+    password_confirm: "",
+    first_name: "",
+    last_name: "",
+    role: "CLIENT",
+    phone_number: "",
+    whatsapp_number: "",
     department: "",
+    organization: organizationId,
   });
 
-  const [roleDropdownOpen, setRoleDropdownOpen] = useState(false);
-
-  const roles = ["Admin", "Manager", "User", "Viewer"];
+  const [roles, setRoles] = useState<Array<{ value: string; label: string }>>(
+    []
+  );
+  const [loading, setLoading] = useState(false);
 
   // Lock scroll when modal is open
   useScrollLock(isOpen);
 
+  // Fetch roles from API
+  useEffect(() => {
+    const fetchRoles = async () => {
+      try {
+        const response = await api.get<RolesResponse>("/users/roles/");
+        const roleOptions = response.data.roles.map((role) => ({
+          value: role.value,
+          label: role.display,
+        }));
+        setRoles(roleOptions);
+      } catch (error) {
+        console.error("Failed to fetch roles:", error);
+        toast.error("Failed to load roles");
+      }
+    };
+
+    if (isOpen) {
+      fetchRoles();
+    }
+  }, [isOpen]);
+
+  // Update organization ID when it changes
+  useEffect(() => {
+    setFormData((prev) => ({
+      ...prev,
+      organization: organizationId,
+    }));
+  }, [organizationId]);
+
   if (!isOpen) return null;
 
-  const handleChange = (field: keyof OrgAccountFormData, value: string) => {
+  const handleChange = (
+    field: keyof OrgAccountFormData,
+    value: string | number
+  ) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit(formData);
-    // Reset form
-    setFormData({
-      username: "",
-      email: "",
-      password: "",
-      confirmPassword: "",
-      firstName: "",
-      lastName: "",
-      role: "",
-      phone: "",
-      whatsapp: "",
-      department: "",
-    });
+
+    // Validate passwords match
+    if (formData.password !== formData.password_confirm) {
+      toast.error("Passwords do not match");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await api.post("/auth/users/create-organization-user/", formData);
+      toast.success("Organization account created successfully");
+      onSubmit(formData);
+      onClose();
+      // Reset form
+      setFormData({
+        username: "",
+        email: "",
+        password: "",
+        password_confirm: "",
+        first_name: "",
+        last_name: "",
+        role: "CLIENT",
+        phone_number: "",
+        whatsapp_number: "",
+        department: "",
+        organization: organizationId,
+      });
+    } catch (error: unknown) {
+      console.error("Failed to create organization account:", error);
+      let errorMessage = "Failed to create account";
+      if (error && typeof error === "object" && "response" in error) {
+        const axiosError = error as {
+          response?: { data?: { detail?: string; message?: string } };
+        };
+        errorMessage =
+          axiosError.response?.data?.detail ||
+          axiosError.response?.data?.message ||
+          errorMessage;
+      }
+      toast.error(errorMessage);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -161,9 +239,9 @@ const AddOrgAccountModal: React.FC<AddOrgAccountModalProps> = ({
                 </label>
                 <input
                   type="password"
-                  value={formData.confirmPassword}
+                  value={formData.password_confirm}
                   onChange={(e) =>
-                    handleChange("confirmPassword", e.target.value)
+                    handleChange("password_confirm", e.target.value)
                   }
                   placeholder="Confirm Password"
                   className="w-full px-4 py-3 rounded-xl border border-[#E1E4EA] 
@@ -180,8 +258,8 @@ const AddOrgAccountModal: React.FC<AddOrgAccountModalProps> = ({
                 </label>
                 <input
                   type="text"
-                  value={formData.firstName}
-                  onChange={(e) => handleChange("firstName", e.target.value)}
+                  value={formData.first_name}
+                  onChange={(e) => handleChange("first_name", e.target.value)}
                   placeholder="Enter First Name"
                   className="w-full px-4 py-3 rounded-xl border border-[#E1E4EA] 
                            focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary
@@ -197,8 +275,8 @@ const AddOrgAccountModal: React.FC<AddOrgAccountModalProps> = ({
                 </label>
                 <input
                   type="text"
-                  value={formData.lastName}
-                  onChange={(e) => handleChange("lastName", e.target.value)}
+                  value={formData.last_name}
+                  onChange={(e) => handleChange("last_name", e.target.value)}
                   placeholder="Enter Last Name"
                   className="w-full px-4 py-3 rounded-xl border border-[#E1E4EA] 
                            focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary
@@ -207,56 +285,20 @@ const AddOrgAccountModal: React.FC<AddOrgAccountModalProps> = ({
                 />
               </div>
 
-              {/* Role Dropdown */}
+              {/* Role - Using SearchableSelect */}
               <div>
-                <label className="block text-sm font-semibold text-dark mb-2">
-                  Role
-                </label>
-                <div className="relative">
-                  <button
-                    type="button"
-                    onClick={() => setRoleDropdownOpen(!roleDropdownOpen)}
-                    className="w-full px-4 py-3 rounded-xl border border-[#E1E4EA] 
-                             focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary
-                             text-sm text-left transition-all flex items-center justify-between"
-                  >
-                    <span className={formData.role ? "text-dark" : "text-gray"}>
-                      {formData.role || "Select Role"}
-                    </span>
-                    <svg
-                      className={`w-4 h-4 text-gray transition-transform ${
-                        roleDropdownOpen ? "rotate-180" : ""
-                      }`}
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M19 9l-7 7-7-7"
-                      />
-                    </svg>
-                  </button>
-                  {roleDropdownOpen && (
-                    <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-[#E1E4EA] rounded-xl shadow-lg z-10">
-                      {roles.map((role) => (
-                        <button
-                          key={role}
-                          type="button"
-                          onClick={() => {
-                            handleChange("role", role);
-                            setRoleDropdownOpen(false);
-                          }}
-                          className="w-full px-4 py-2 text-sm text-left hover:bg-[#F5F7FA] first:rounded-t-xl last:rounded-b-xl"
-                        >
-                          {role}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
+                <SearchableSelect
+                  label="Role"
+                  options={roles}
+                  value={formData.role}
+                  onChange={(value) => handleChange("role", value)}
+                  placeholder="Select Role"
+                  searchPlaceholder="Search roles..."
+                  disabled={true}
+                />
+                <p className="text-xs text-gray mt-1">
+                  Role is set to CLIENT for organization users
+                </p>
               </div>
 
               {/* Phone */}
@@ -266,8 +308,8 @@ const AddOrgAccountModal: React.FC<AddOrgAccountModalProps> = ({
                 </label>
                 <input
                   type="tel"
-                  value={formData.phone}
-                  onChange={(e) => handleChange("phone", e.target.value)}
+                  value={formData.phone_number}
+                  onChange={(e) => handleChange("phone_number", e.target.value)}
                   placeholder="Enter Phone Number"
                   className="w-full px-4 py-3 rounded-xl border border-[#E1E4EA] 
                            focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary
@@ -282,8 +324,10 @@ const AddOrgAccountModal: React.FC<AddOrgAccountModalProps> = ({
                 </label>
                 <input
                   type="tel"
-                  value={formData.whatsapp}
-                  onChange={(e) => handleChange("whatsapp", e.target.value)}
+                  value={formData.whatsapp_number}
+                  onChange={(e) =>
+                    handleChange("whatsapp_number", e.target.value)
+                  }
                   placeholder="Enter WhatsApp Number"
                   className="w-full px-4 py-3 rounded-xl border border-[#E1E4EA] 
                            focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary
@@ -320,10 +364,34 @@ const AddOrgAccountModal: React.FC<AddOrgAccountModalProps> = ({
               </button>
               <button
                 type="submit"
+                disabled={loading}
                 className="px-6 py-2.5 text-sm font-medium text-white bg-primary 
-                         rounded-xl hover:bg-primary/90 transition-colors"
+                         rounded-xl hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed
+                         flex items-center gap-2"
               >
-                Add Account
+                {loading && (
+                  <svg
+                    className="animate-spin h-4 w-4"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    ></circle>
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    ></path>
+                  </svg>
+                )}
+                {loading ? "Creating..." : "Add Account"}
               </button>
             </div>
           </form>

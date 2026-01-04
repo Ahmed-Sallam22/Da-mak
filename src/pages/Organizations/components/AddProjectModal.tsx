@@ -1,18 +1,38 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useScrollLock } from "../../../hooks/useScrollLock";
+import { SearchableSelect } from "../../../components/shared";
+import api from "../../../services/api";
+import toast from "react-hot-toast";
 
 export interface ProjectFormData {
   name: string;
   code: string;
-  organization: string;
+  organization: number;
   description: string;
-  admin: string;
+  project_admin: number | null;
+}
+
+interface Admin {
+  id: number;
+  username: string;
+  email: string;
+  first_name: string;
+  last_name: string;
+  full_name: string;
+  role: string;
+}
+
+interface AdminsResponse {
+  role: string;
+  count: number;
+  users: Admin[];
 }
 
 interface AddProjectModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (data: ProjectFormData) => void;
+  organizationId: number;
   organizationName: string;
 }
 
@@ -20,41 +40,100 @@ const AddProjectModal: React.FC<AddProjectModalProps> = ({
   isOpen,
   onClose,
   onSubmit,
+  organizationId,
   organizationName,
 }) => {
   const [formData, setFormData] = useState<ProjectFormData>({
     name: "",
     code: "",
-    organization: organizationName,
+    organization: organizationId,
     description: "",
-    admin: "",
+    project_admin: null,
   });
 
-  const [adminDropdownOpen, setAdminDropdownOpen] = useState(false);
-
-  // Mock admins list
-  const admins = ["Ahmed Ali", "Sara Mohamed", "Omar Hassan", "Fatima Ahmed"];
+  const [admins, setAdmins] = useState<Array<{ value: string; label: string }>>(
+    []
+  );
+  const [loading, setLoading] = useState(false);
 
   // Lock scroll when modal is open
   useScrollLock(isOpen);
 
+  // Fetch admins from API
+  useEffect(() => {
+    const fetchAdmins = async () => {
+      try {
+        const response = await api.get<AdminsResponse>(
+          "/users/by_role/?role=ADMIN"
+        );
+        const adminOptions = response.data.users.map((admin) => ({
+          value: admin.id.toString(),
+          label: admin.full_name || admin.username,
+        }));
+        setAdmins(adminOptions);
+      } catch (error) {
+        console.error("Failed to fetch admins:", error);
+        toast.error("Failed to load admins");
+      }
+    };
+
+    if (isOpen) {
+      fetchAdmins();
+    }
+  }, [isOpen]);
+
+  // Update organization ID when it changes
+  useEffect(() => {
+    if (organizationId) {
+      setFormData((prev) => ({
+        ...prev,
+        organization: organizationId,
+      }));
+    }
+  }, [organizationId]);
+
   if (!isOpen) return null;
 
-  const handleChange = (field: keyof ProjectFormData, value: string) => {
+  const handleChange = (
+    field: keyof ProjectFormData,
+    value: string | number | null
+  ) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit(formData);
-    // Reset form
-    setFormData({
-      name: "",
-      code: "",
-      organization: organizationName,
-      description: "",
-      admin: "",
-    });
+
+    setLoading(true);
+    try {
+      await api.post("/projects/", formData);
+      toast.success("Project created successfully");
+      onSubmit(formData);
+      onClose();
+      // Reset form
+      setFormData({
+        name: "",
+        code: "",
+        organization: organizationId,
+        description: "",
+        project_admin: null,
+      });
+    } catch (error: unknown) {
+      console.error("Failed to create project:", error);
+      let errorMessage = "Failed to create project";
+      if (error && typeof error === "object" && "response" in error) {
+        const axiosError = error as {
+          response?: { data?: { detail?: string; message?: string } };
+        };
+        errorMessage =
+          axiosError.response?.data?.detail ||
+          axiosError.response?.data?.message ||
+          errorMessage;
+      }
+      toast.error(errorMessage);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -156,54 +235,16 @@ const AddProjectModal: React.FC<AddProjectModalProps> = ({
 
             {/* Admin Dropdown */}
             <div className="mb-6">
-              <label className="block text-sm font-semibold text-dark mb-2">
-                Admin
-              </label>
-              <div className="relative">
-                <button
-                  type="button"
-                  onClick={() => setAdminDropdownOpen(!adminDropdownOpen)}
-                  className="w-full px-4 py-3 rounded-xl border border-[#E1E4EA] 
-                           focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary
-                           text-sm text-left transition-all flex items-center justify-between"
-                >
-                  <span className={formData.admin ? "text-dark" : "text-gray"}>
-                    {formData.admin || "Select Admin"}
-                  </span>
-                  <svg
-                    className={`w-4 h-4 text-gray transition-transform ${
-                      adminDropdownOpen ? "rotate-180" : ""
-                    }`}
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M19 9l-7 7-7-7"
-                    />
-                  </svg>
-                </button>
-                {adminDropdownOpen && (
-                  <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-[#E1E4EA] rounded-xl shadow-lg z-10">
-                    {admins.map((admin) => (
-                      <button
-                        key={admin}
-                        type="button"
-                        onClick={() => {
-                          handleChange("admin", admin);
-                          setAdminDropdownOpen(false);
-                        }}
-                        className="w-full px-4 py-2 text-sm text-left hover:bg-[#F5F7FA] first:rounded-t-xl last:rounded-b-xl"
-                      >
-                        {admin}
-                      </button>
-                    ))}
-                  </div>
-                )}
-              </div>
+              <SearchableSelect
+                label="Admin"
+                options={admins}
+                value={formData.project_admin?.toString() || ""}
+                onChange={(value) =>
+                  handleChange("project_admin", value ? parseInt(value) : null)
+                }
+                placeholder="Select Admin"
+                searchPlaceholder="Search admins..."
+              />
             </div>
 
             {/* Footer */}
@@ -218,10 +259,34 @@ const AddProjectModal: React.FC<AddProjectModalProps> = ({
               </button>
               <button
                 type="submit"
+                disabled={loading}
                 className="px-6 py-2.5 text-sm font-medium text-white bg-primary 
-                         rounded-xl hover:bg-primary/90 transition-colors"
+                         rounded-xl hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed
+                         flex items-center gap-2"
               >
-                Add Project
+                {loading && (
+                  <svg
+                    className="animate-spin h-4 w-4"
+                    xmlns="http://www.w3.org/2000/svg"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    ></circle>
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    ></path>
+                  </svg>
+                )}
+                {loading ? "Creating..." : "Add Project"}
               </button>
             </div>
           </form>

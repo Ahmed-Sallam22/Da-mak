@@ -1,9 +1,10 @@
 import React, { useState, useMemo, useEffect } from "react";
-import { useParams } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import EditOrganizationModal from "./components/EditOrganizationModal";
 import AddOrgAccountModal from "./components/AddOrgAccountModal";
 import AddProjectModal from "./components/AddProjectModal";
 import CustomSLAModal from "./components/CustomSLAModal";
+import AssignAdminModal from "./components/AssignAdminModal";
 import OrganizationInfoCard from "./components/OrganizationInfoCard";
 import NotificationPreferencesCard from "./components/NotificationPreferencesCard";
 import SLASettingsCard from "./components/SLASettingsCard";
@@ -64,6 +65,7 @@ const PlusIcon = () => (
 const OrganizationDetailsPage: React.FC = () => {
   usePageTitle("تفاصيل المؤسسة");
   const { id } = useParams();
+  const navigate = useNavigate();
 
   // State
   const [organization, setOrganization] = useState<OrganizationDetails | null>(
@@ -84,6 +86,11 @@ const OrganizationDetailsPage: React.FC = () => {
   const [isAddAccountModalOpen, setIsAddAccountModalOpen] = useState(false);
   const [isAddProjectModalOpen, setIsAddProjectModalOpen] = useState(false);
   const [isCustomSLAModalOpen, setIsCustomSLAModalOpen] = useState(false);
+  const [isAssignAdminModalOpen, setIsAssignAdminModalOpen] = useState(false);
+  const [selectedProjectId, setSelectedProjectId] = useState<number | null>(
+    null
+  );
+  const [isUpdateAdminMode, setIsUpdateAdminMode] = useState(false);
 
   // Fetch organization details
   const fetchOrganizationDetails = async () => {
@@ -116,7 +123,23 @@ const OrganizationDetailsPage: React.FC = () => {
 
   // Mock data for tables (will be replaced with API data later)
   const accountColumns = useMemo(() => getAccountColumns(), []);
-  const projectColumns = useMemo(() => getProjectColumns(), []);
+
+  const handleAssignAdmin = (projectId: number) => {
+    setSelectedProjectId(projectId);
+    setIsUpdateAdminMode(false);
+    setIsAssignAdminModalOpen(true);
+  };
+
+  const handleUpdateAdmin = (projectId: number) => {
+    setSelectedProjectId(projectId);
+    setIsUpdateAdminMode(true);
+    setIsAssignAdminModalOpen(true);
+  };
+
+  const projectColumns = useMemo(
+    () => getProjectColumns(handleAssignAdmin, handleUpdateAdmin),
+    []
+  );
 
   // Convert user/project names to table format
   const orgAccountsData = useMemo(() => {
@@ -279,12 +302,18 @@ const OrganizationDetailsPage: React.FC = () => {
 
   const handleAddAccount = (data: OrgAccountFormData) => {
     console.log("Add account:", data);
+    // The API call is already handled in the modal, just close it
     setIsAddAccountModalOpen(false);
+    // Optionally refresh the organization details to get updated user list
+    fetchOrganizationDetails();
   };
 
   const handleAddProject = (data: ProjectFormData) => {
     console.log("Add project:", data);
+    // The API call is already handled in the modal, just close it
     setIsAddProjectModalOpen(false);
+    // Optionally refresh the organization details to get updated project list
+    fetchOrganizationDetails();
   };
 
   const handleSetDefaultSLA = async () => {
@@ -313,6 +342,10 @@ const OrganizationDetailsPage: React.FC = () => {
     }
   };
 
+  const handleBackToOrganizations = () => {
+    navigate("/organizations");
+  };
+
   if (loading || !organization) {
     return (
       <div className="flex items-center justify-center min-h-screen">
@@ -324,7 +357,11 @@ const OrganizationDetailsPage: React.FC = () => {
   return (
     <div className="p-6">
       {/* Page Header */}
-      <PageHeader title="Organization Details" actions={headerActions} />
+      <PageHeader
+        title="Organization Details"
+        actions={headerActions}
+        onBack={handleBackToOrganizations}
+      />
 
       {/* Top Section - Organization Info and Notifications */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
@@ -383,12 +420,14 @@ const OrganizationDetailsPage: React.FC = () => {
         isOpen={isAddAccountModalOpen}
         onClose={() => setIsAddAccountModalOpen(false)}
         onSubmit={handleAddAccount}
+        organizationId={organization.id}
       />
 
       <AddProjectModal
         isOpen={isAddProjectModalOpen}
         onClose={() => setIsAddProjectModalOpen(false)}
         onSubmit={handleAddProject}
+        organizationId={organization.id}
         organizationName={organization.name}
       />
 
@@ -402,6 +441,17 @@ const OrganizationDetailsPage: React.FC = () => {
           medium: organization.sla.medium_response_minutes || 60,
           low: organization.sla.low_response_minutes || 120,
         }}
+      />
+
+      <AssignAdminModal
+        isOpen={isAssignAdminModalOpen}
+        onClose={() => setIsAssignAdminModalOpen(false)}
+        onSuccess={() => {
+          setIsAssignAdminModalOpen(false);
+          fetchOrganizationDetails();
+        }}
+        projectId={selectedProjectId || 0}
+        isUpdateMode={isUpdateAdminMode}
       />
     </div>
   );
