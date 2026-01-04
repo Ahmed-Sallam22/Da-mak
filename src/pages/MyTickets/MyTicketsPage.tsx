@@ -150,7 +150,10 @@ const MyTicketsPage: React.FC = () => {
     console.log("Ticket data:", data);
     console.log("Mode:", modalMode);
     console.log("Ticket ID:", selectedTicketId);
-    // TODO: Add API call based on mode
+
+    // Refresh tickets list after create/edit
+    dispatch(fetchTickets({ page: currentPage, page_size: pageSize }));
+
     setIsCreateModalOpen(false);
   };
 

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Table from "../../components/shared/Table/Table";
 import type { TableColumn } from "../../components/shared/Table/Table.types";
 import Pagination from "../../components/shared/Pagination/Pagination";
@@ -8,14 +8,33 @@ import PageHeader from "../../components/shared/PageHeader/PageHeader";
 import CreateOrganizationModal from "./components/CreateOrganizationModal";
 import { useNavigate } from "react-router-dom";
 import { usePageTitle } from "../../hooks/usePageTitle";
+import api from "../../services/api";
+import toast from "react-hot-toast";
 
 interface Organization {
-  id: string;
+  id: number;
   name: string;
   code: string;
-  ticketCount: number;
-  slaType: string;
-  status: "Active" | "Inactive";
+  is_active: boolean;
+  use_default_sla: boolean;
+  notify_on_opened: boolean;
+  notify_on_resolved: boolean;
+  notify_on_assigned: boolean;
+  notify_on_in_progress: boolean;
+  user_count: number;
+  project_count: number;
+  ticket_count: number;
+  has_custom_sla: boolean;
+  sla_type: string;
+  created_at: string;
+  updated_at: string;
+}
+
+interface OrganizationsResponse {
+  count: number;
+  next: string | null;
+  previous: string | null;
+  results: Organization[];
 }
 
 const OrganizationsPage: React.FC = () => {
@@ -25,88 +44,129 @@ const OrganizationsPage: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [organizations, setOrganizations] = useState<Organization[]>([]);
+  const [loading, setLoading] = useState(false);
 
-  // Mock data
-  const mockOrganizations: Organization[] = [
-    {
-      id: "1",
-      name: "Acme Corp",
-      code: "ACME",
-      ticketCount: 45,
-      slaType: "Default SLA",
-      status: "Active",
-    },
-    {
-      id: "2",
-      name: "Global Tech",
-      code: "GTECH",
-      ticketCount: 128,
-      slaType: "Custom SLA",
-      status: "Active",
-    },
-    {
-      id: "3",
-      name: "Innovate Inc",
-      code: "INNO",
-      ticketCount: 67,
-      slaType: "Default SLA",
-      status: "Inactive",
-    },
-    {
-      id: "4",
-      name: "Data Systems",
-      code: "DATA",
-      ticketCount: 89,
-      slaType: "Custom SLA",
-      status: "Active",
-    },
-    {
-      id: "5",
-      name: "Cloud Services",
-      code: "CLOUD",
-      ticketCount: 34,
-      slaType: "Default SLA",
-      status: "Active",
-    },
-  ];
+  // Fetch organizations from API
+  const fetchOrganizations = async () => {
+    setLoading(true);
+    try {
+      const response = await api.get<OrganizationsResponse>("/organizations/");
+      setOrganizations(response.data.results);
+    } catch (error) {
+      console.error("Failed to fetch organizations:", error);
+      toast.error("Failed to load organizations");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-  const filteredOrganizations = mockOrganizations.filter(
+  // Load organizations on mount
+  useEffect(() => {
+    fetchOrganizations();
+  }, []);
+
+  // Handle toggle organization status
+  const handleToggleStatus = async (orgId: number, isActive: boolean) => {
+    try {
+      const endpoint = isActive
+        ? `/organizations/${orgId}/deactivate/`
+        : `/organizations/${orgId}/activate/`;
+      await api.post(endpoint);
+      toast.success(
+        isActive ? "Organization deactivated" : "Organization activated"
+      );
+      fetchOrganizations(); // Refresh list
+    } catch (error) {
+      console.error("Failed to toggle organization status:", error);
+      toast.error("Failed to update organization status");
+    }
+  };
+
+  const filteredOrganizations = organizations.filter(
     (org) =>
       org.name.toLowerCase().includes(searchValue.toLowerCase()) ||
       org.code.toLowerCase().includes(searchValue.toLowerCase())
   );
 
   const totalPages = Math.ceil(filteredOrganizations.length / pageSize);
+  const startIndex = (currentPage - 1) * pageSize;
+  const endIndex = startIndex + pageSize;
+  const currentOrganizations = filteredOrganizations.slice(
+    startIndex,
+    endIndex
+  );
 
   const columns: TableColumn<Organization>[] = [
     {
       key: "name",
       header: "Organization Name",
       minWidth: 200,
+      render: (_value, org) => (
+        <span className="font-medium text-dark">{org.name}</span>
+      ),
     },
     {
       key: "code",
       header: "Code",
       minWidth: 100,
+      render: (_value, org) => <span className="text-gray">{org.code}</span>,
     },
     {
-      key: "ticketCount",
+      key: "ticket_count",
       header: "Ticket Count",
       minWidth: 120,
+      render: (_value, org) => (
+        <span className="text-dark">{org.ticket_count}</span>
+      ),
     },
     {
-      key: "slaType",
+      key: "user_count",
+      header: "User Count",
+      minWidth: 120,
+      render: (_value, org) => (
+        <span className="text-dark">{org.user_count}</span>
+      ),
+    },
+    {
+      key: "sla_type",
       header: "SLA Type",
       minWidth: 150,
+      render: (_value, org) => (
+        <span className="text-dark capitalize">
+          {org.sla_type === "none"
+            ? "No SLA"
+            : org.sla_type === "custom"
+            ? "Custom SLA"
+            : "Default SLA"}
+        </span>
+      ),
     },
     {
-      key: "status",
+      key: "is_active",
       header: "Status",
-      minWidth: 100,
+      minWidth: 150,
       render: (_value, org) => (
-        <Badge variant={org.status === "Active" ? "new" : "default"}>
-          {org.status}
-        </Badge>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              handleToggleStatus(org.id, org.is_active);
+            }}
+            className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+              org.is_active ? "bg-green-500" : "bg-gray-300"
+            }`}
+          >
+            <span
+              className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                org.is_active ? "translate-x-6" : "translate-x-1"
+              }`}
+            />
+          </button>
+          <Badge variant={org.is_active ? "new" : "default"}>
+            {org.is_active ? "Active" : "Inactive"}
+          </Badge>
+        </div>
       ),
     },
     {
@@ -142,17 +202,31 @@ const OrganizationsPage: React.FC = () => {
     },
   ];
 
-  const handleCreateOrganization = (data: {
+  const handleCreateOrganization = async (data: {
     name: string;
     code: string;
-    status: boolean;
-    notifyOpened: boolean;
-    notifyAssigned: boolean;
-    notifyInProgress: boolean;
-    notifyResolved: boolean;
+    is_active: boolean;
+    notify_on_opened: boolean;
+    notify_on_assigned: boolean;
+    notify_on_in_progress: boolean;
+    notify_on_resolved: boolean;
   }) => {
-    console.log("Create organization:", data);
-    setIsModalOpen(false);
+    try {
+      await api.post("/organizations/", data);
+      toast.success("Organization created successfully");
+      setIsModalOpen(false);
+      fetchOrganizations(); // Refresh list
+    } catch (error) {
+      console.error("Failed to create organization:", error);
+      const axiosError = error as {
+        response?: { data?: { detail?: string; [key: string]: unknown } };
+      };
+      const errorMsg =
+        axiosError?.response?.data?.detail ||
+        JSON.stringify(axiosError?.response?.data) ||
+        "Failed to create organization";
+      toast.error(errorMsg);
+    }
   };
 
   return (
@@ -165,7 +239,7 @@ const OrganizationsPage: React.FC = () => {
 
       <div className="bg-white rounded-2xl border border-[#E1E4EA] overflow-hidden">
         {/* Search Bar */}
-        <div >
+        <div>
           <SearchBar
             value={searchValue}
             onChange={setSearchValue}
@@ -175,7 +249,13 @@ const OrganizationsPage: React.FC = () => {
         </div>
 
         {/* Table */}
-        <Table columns={columns} data={filteredOrganizations} />
+        {loading ? (
+          <div className="flex items-center justify-center py-12">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+          </div>
+        ) : (
+          <Table columns={columns} data={currentOrganizations} />
+        )}
 
         {/* Pagination */}
         <div className="p-2 ">

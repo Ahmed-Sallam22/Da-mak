@@ -8,11 +8,11 @@ interface CreateOrganizationModalProps {
   onSubmit: (data: {
     name: string;
     code: string;
-    status: boolean;
-    notifyOpened: boolean;
-    notifyAssigned: boolean;
-    notifyInProgress: boolean;
-    notifyResolved: boolean;
+    is_active: boolean;
+    notify_on_opened: boolean;
+    notify_on_assigned: boolean;
+    notify_on_in_progress: boolean;
+    notify_on_resolved: boolean;
   }) => void;
 }
 
@@ -23,7 +23,7 @@ const CreateOrganizationModal: React.FC<CreateOrganizationModalProps> = ({
 }) => {
   const [name, setName] = useState("");
   const [code, setCode] = useState("");
-  const [status, setStatus] = useState(true);
+  const [isActive, setIsActive] = useState(true);
   const [notifyOpened, setNotifyOpened] = useState(true);
   const [notifyAssigned, setNotifyAssigned] = useState(true);
   const [notifyInProgress, setNotifyInProgress] = useState(true);
@@ -39,16 +39,16 @@ const CreateOrganizationModal: React.FC<CreateOrganizationModalProps> = ({
     onSubmit({
       name,
       code,
-      status,
-      notifyOpened,
-      notifyAssigned,
-      notifyInProgress,
-      notifyResolved,
+      is_active: isActive,
+      notify_on_opened: notifyOpened,
+      notify_on_assigned: notifyAssigned,
+      notify_on_in_progress: notifyInProgress,
+      notify_on_resolved: notifyResolved,
     });
     // Reset form
     setName("");
     setCode("");
-    setStatus(true);
+    setIsActive(true);
     setNotifyOpened(true);
     setNotifyAssigned(true);
     setNotifyInProgress(true);
@@ -92,10 +92,6 @@ const CreateOrganizationModal: React.FC<CreateOrganizationModalProps> = ({
           <form onSubmit={handleSubmit} className="p-6">
             {/* Organization Info Section */}
             <div className="mb-6">
-              <h3 className="text-sm font-semibold text-dark mb-4">
-                Organization Info
-              </h3>
-
               {/* Organization Name */}
               <div className="mb-4">
                 <label className="block text-sm font-semibold text-dark mb-2">
@@ -134,8 +130,8 @@ const CreateOrganizationModal: React.FC<CreateOrganizationModalProps> = ({
               <div className="p-4 bg-[#F5F7FA] rounded-xl">
                 <Toggle
                   label="Status"
-                  value={status}
-                  onChange={() => setStatus(!status)}
+                  value={isActive}
+                  onChange={() => setIsActive(!isActive)}
                   variant="green"
                 />
               </div>
@@ -201,7 +197,7 @@ const CreateOrganizationModal: React.FC<CreateOrganizationModalProps> = ({
                 className="px-6 py-2.5 text-sm font-medium text-white bg-primary 
                          rounded-xl hover:bg-primary/90 transition-colors"
               >
-                Create User
+                Create Organization
               </button>
             </div>
           </form>

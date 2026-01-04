@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { useScrollLock } from "../../../hooks/useScrollLock";
 import { MultiSelect } from "../../../components/shared/SearchableSelect";
 import SearchableSelect from "../../../components/shared/SearchableSelect/SearchableSelect";
@@ -33,7 +33,8 @@ export interface TicketFormData {
 
 interface TicketAttachment {
   id: number;
-  file: string;
+  file?: string; // Optional: URL to file
+  file_data?: string; // Optional: Base64 encoded file data
   file_name: string;
   file_size: number;
   uploaded_at: string;
@@ -58,6 +59,20 @@ interface Project {
   organization_name: string;
 }
 
+interface Developer {
+  id: number;
+  username: string;
+  email: string;
+  first_name: string;
+  last_name: string;
+  role: string;
+  organization_id: number | null;
+  organization_name: string | null;
+  phone_number: string;
+  whatsapp_number: string;
+  department: string;
+}
+
 const CreateTicketModal: React.FC<CreateTicketModalProps> = ({
   isOpen,
   onClose,
@@ -69,13 +84,14 @@ const CreateTicketModal: React.FC<CreateTicketModalProps> = ({
   // Get user role
   const { user } = useAppSelector((state) => state.auth);
   const isClient = user?.role?.toLowerCase() === "client";
+
   // Determine initial tab based on mode
-  const getInitialTab = () => {
+  const getInitialTab = useCallback(() => {
     if (mode === "assign") return "assign";
     if (mode === "attachment") return "attachment";
     if (mode === "edit" || mode === "create") return "details";
     return "details";
-  };
+  }, [mode]);
 
   const [activeTab, setActiveTab] = useState<
     "assign" | "details" | "attachment"
@@ -101,8 +117,8 @@ const CreateTicketModal: React.FC<CreateTicketModalProps> = ({
   >([]);
   const [dragActive, setDragActive] = useState(false);
   const [uploadSuccess, setUploadSuccess] = useState(false);
-  const [uploadingFile, setUploadingFile] = useState(false);
   const [deletingFileId, setDeletingFileId] = useState<number | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
   const [assignedUsers, setAssignedUsers] = useState<Option[]>(
     initialData?.assignedUsers || []
   );
@@ -152,15 +168,16 @@ const CreateTicketModal: React.FC<CreateTicketModalProps> = ({
 
   const fetchUsers = async () => {
     try {
-      // TODO: Replace with actual users endpoint
-      const mockUsers: Option[] = [
-        { id: 1, name: "Ahmed Mohamed", email: "ahmed@example.com" },
-        { id: 2, name: "Sara Ali", email: "sara@example.com" },
-        { id: 3, name: "Mohamed Hassan", email: "mohamed@example.com" },
-        { id: 4, name: "Fatma Ibrahim", email: "fatma@example.com" },
-        { id: 5, name: "Omar Khaled", email: "omar@example.com" },
-      ];
-      setAvailableUsers(mockUsers);
+      const response = await api.get("tickets/developers/");
+      const developers = response.data.map((dev: Developer) => ({
+        id: dev.id,
+        name:
+          dev.first_name && dev.last_name
+            ? `${dev.first_name} ${dev.last_name}`
+            : dev.username,
+        email: dev.email,
+      }));
+      setAvailableUsers(developers);
     } catch (error) {
       console.error("Failed to fetch users:", error);
     }
@@ -189,6 +206,19 @@ const CreateTicketModal: React.FC<CreateTicketModalProps> = ({
         }));
         setAssignedUsers(users);
       }
+
+      // Populate dates if available
+      if (ticket.resolution_due_at) {
+        // Convert ISO datetime to YYYY-MM-DD format for date input
+        const dueDate = new Date(ticket.resolution_due_at);
+        setResolutionDueDate(dueDate.toISOString().split("T")[0]);
+      }
+
+      if (ticket.estimated_resolution_time) {
+        // Convert ISO datetime to YYYY-MM-DD format for date input
+        const estimatedDate = new Date(ticket.estimated_resolution_time);
+        setEstimatedResolutionDate(estimatedDate.toISOString().split("T")[0]);
+      }
     } catch (error) {
       console.error("Failed to fetch ticket details:", error);
     }
@@ -207,26 +237,29 @@ const CreateTicketModal: React.FC<CreateTicketModalProps> = ({
   // Add attachment to ticket
   const addAttachment = async (id: number, file: File) => {
     try {
-      setUploadingFile(true);
       const formData = new FormData();
       formData.append("file", file);
 
-      await api.post(`tickets/${id}/add_attachment/`, formData, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
-      });
+      const response = await api.post(
+        `tickets/${id}/add_attachment/`,
+        formData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+          },
+        }
+      );
 
       // Refresh attachments list
       await fetchAttachments(id);
       setUploadSuccess(true);
       setTimeout(() => setUploadSuccess(false), 3000);
-      toast.success(`File "${file.name}" uploaded successfully`);
+      // Toast removed - will show summary toast after all uploads complete
+      return response.data;
     } catch (error) {
       console.error("Failed to add attachment:", error);
-      toast.error(`Failed to upload "${file.name}"`);
-    } finally {
-      setUploadingFile(false);
+      // Toast removed - will show error toast for overall operation if any upload fails
+      throw error;
     }
   };
 
@@ -252,6 +285,21 @@ const CreateTicketModal: React.FC<CreateTicketModalProps> = ({
   // Assign ticket
   const assignTicket = async (id: number) => {
     try {
+      // Validate dates
+      if (resolutionDueDate && estimatedResolutionDate) {
+        const dueDate = new Date(resolutionDueDate);
+        const estimatedDate = new Date(estimatedResolutionDate);
+
+        if (estimatedDate > dueDate) {
+          toast.error(
+            "Estimated resolution time should not be after the resolution due date"
+          );
+          return;
+        }
+      }
+
+      setIsCreating(true);
+
       const payload = {
         assigned_to: assignedUsers.map((user) => user.id),
         resolution_due_at: resolutionDueDate
@@ -267,7 +315,15 @@ const CreateTicketModal: React.FC<CreateTicketModalProps> = ({
       onClose();
     } catch (error) {
       console.error("Failed to assign ticket:", error);
-      toast.error("Failed to assign ticket");
+      const axiosError = error as {
+        response?: { data?: { estimated_resolution_time?: string[] } };
+      };
+      const errorMsg =
+        axiosError?.response?.data?.estimated_resolution_time?.[0] ||
+        "Failed to assign ticket";
+      toast.error(errorMsg);
+    } finally {
+      setIsCreating(false);
     }
   };
 
@@ -291,7 +347,7 @@ const CreateTicketModal: React.FC<CreateTicketModalProps> = ({
       // When modal opens, set the correct tab based on mode
       setActiveTab(getInitialTab());
     }
-  }, [isOpen, mode]);
+  }, [isOpen, mode, getInitialTab]);
 
   // Fetch data on mount and when ticketId changes
   useEffect(() => {
@@ -314,39 +370,150 @@ const CreateTicketModal: React.FC<CreateTicketModalProps> = ({
 
   if (!isOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     // Handle different modes
     if (mode === "assign" && ticketId) {
-      void assignTicket(ticketId);
+      await assignTicket(ticketId);
       return;
     }
 
     if (mode === "attachment" && ticketId) {
-      // Upload all new attachments
-      attachments.forEach((file) => {
-        void addAttachment(ticketId, file);
-      });
-      // Clear local attachments after upload
-      setAttachments([]);
+      try {
+        setIsCreating(true);
+
+        // Upload all new attachments
+        const uploadPromises = attachments.map((file) =>
+          addAttachment(ticketId, file)
+        );
+        await Promise.all(uploadPromises);
+
+        // Clear local attachments after successful upload
+        setAttachments([]);
+
+        toast.success("Attachments saved successfully");
+
+        // Call parent onSubmit to refresh the ticket list
+        onSubmit({
+          project,
+          projectName,
+          title,
+          priority,
+          category,
+          description,
+          attachments: [],
+          assignedUsers,
+          resolutionDueDate,
+          estimatedResolutionDate,
+        });
+
+        // Close modal after successful save
+        onClose();
+      } catch (error) {
+        console.error("Failed to save attachments:", error);
+        toast.error("Failed to save attachments");
+      } finally {
+        setIsCreating(false);
+      }
       return;
     }
 
-    // For create and edit modes, call the parent onSubmit
-    onSubmit({
-      project,
-      projectName,
-      title,
-      priority,
-      category,
-      description,
-      attachments,
-      assignedUsers,
-      resolutionDueDate,
-      estimatedResolutionDate,
-    });
-    // Form will be reset when modal closes via useEffect
+    // For create mode, call API directly
+    if (mode === "create") {
+      try {
+        setIsCreating(true);
+        const payload = {
+          project: project,
+          project_name: projectName,
+          title: title,
+          description: description,
+          priority: priority,
+          category: category,
+        };
+
+        const response = await api.post("/tickets/", payload);
+        toast.success("Ticket created successfully");
+
+        // If there are attachments, upload them
+        if (attachments.length > 0 && response.data.id) {
+          for (const file of attachments) {
+            await addAttachment(response.data.id, file);
+          }
+        }
+
+        // Call parent onSubmit with the form data
+        onSubmit({
+          project,
+          projectName,
+          title,
+          priority,
+          category,
+          description,
+          attachments,
+          assignedUsers,
+          resolutionDueDate,
+          estimatedResolutionDate,
+        });
+
+        onClose();
+      } catch (error) {
+        console.error("Failed to create ticket:", error);
+        const axiosError = error as {
+          response?: { data?: { detail?: string; [key: string]: unknown } };
+        };
+        const errorMsg =
+          axiosError?.response?.data?.detail ||
+          JSON.stringify(axiosError?.response?.data) ||
+          "Failed to create ticket";
+        toast.error(errorMsg);
+      } finally {
+        setIsCreating(false);
+      }
+      return;
+    }
+
+    // For edit mode, call API directly
+    if (mode === "edit" && ticketId) {
+      try {
+        setIsCreating(true);
+        const payload = {
+          title: title,
+          description: description,
+        };
+
+        await api.patch(`/tickets/${ticketId}/`, payload);
+        toast.success("Ticket updated successfully");
+
+        // Call parent onSubmit with the form data
+        onSubmit({
+          project,
+          projectName,
+          title,
+          priority,
+          category,
+          description,
+          attachments,
+          assignedUsers,
+          resolutionDueDate,
+          estimatedResolutionDate,
+        });
+
+        onClose();
+      } catch (error) {
+        console.error("Failed to update ticket:", error);
+        const axiosError = error as {
+          response?: { data?: { detail?: string; [key: string]: unknown } };
+        };
+        const errorMsg =
+          axiosError?.response?.data?.detail ||
+          JSON.stringify(axiosError?.response?.data) ||
+          "Failed to update ticket";
+        toast.error(errorMsg);
+      } finally {
+        setIsCreating(false);
+      }
+    }
   };
 
   const handleDrag = (e: React.DragEvent) => {
@@ -373,35 +540,25 @@ const CreateTicketModal: React.FC<CreateTicketModalProps> = ({
     });
 
     if (validFiles.length > 0) {
-      // If in attachment mode with existing ticket, upload immediately
-      if (mode === "attachment" && ticketId) {
-        validFiles.forEach((file) => {
-          void addAttachment(ticketId, file);
-        });
-      } else {
-        // Otherwise, add to local state
-        setAttachments((prev) => [...prev, ...validFiles]);
-        setUploadSuccess(true);
-        setTimeout(() => setUploadSuccess(false), 3000);
-      }
+      // Add to local state for batch upload with "Save Attachments" button
+      setAttachments((prev) => [...prev, ...validFiles]);
+      toast.success(
+        `${validFiles.length} file(s) added. Click "Save Attachments" to upload.`
+      );
     }
   };
 
   const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = Array.from(e.target.files || []);
     if (files.length > 0) {
-      // If in attachment mode with existing ticket, upload immediately
-      if (mode === "attachment" && ticketId) {
-        files.forEach((file) => {
-          void addAttachment(ticketId, file);
-        });
-      } else {
-        // Otherwise, add to local state
-        setAttachments((prev) => [...prev, ...files]);
-        setUploadSuccess(true);
-        setTimeout(() => setUploadSuccess(false), 3000);
-      }
+      // Add to local state for batch upload with "Save Attachments" button
+      setAttachments((prev) => [...prev, ...files]);
+      toast.success(
+        `${files.length} file(s) added. Click "Save Attachments" to upload.`
+      );
     }
+    // Reset input
+    e.target.value = "";
   };
 
   const removeAttachment = (index: number) => {
@@ -416,7 +573,98 @@ const CreateTicketModal: React.FC<CreateTicketModalProps> = ({
     return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + " " + sizes[i];
   };
 
-  const getFileIcon = (fileName: string) => {
+  // Check if file is an image
+  const isImageFile = (fileName?: string) => {
+    if (!fileName) return false;
+    const extension = fileName.split(".").pop()?.toLowerCase();
+    return ["jpg", "jpeg", "png", "gif", "bmp", "webp"].includes(
+      extension || ""
+    );
+  };
+
+  // Get file data URL (base64 or regular URL)
+  const getFileDataUrl = (attachment: TicketAttachment) => {
+    if (attachment.file_data) {
+      // If base64 data exists, check if it already has data URI prefix
+      if (attachment.file_data.startsWith("data:")) {
+        return attachment.file_data;
+      }
+      // Add data URI prefix for images
+      if (isImageFile(attachment.file_name)) {
+        return `data:image/png;base64,${attachment.file_data}`;
+      }
+      // For other files, return the base64 data
+      return `data:application/octet-stream;base64,${attachment.file_data}`;
+    }
+    // Fallback to file URL if no base64 data
+    return attachment.file || "";
+  };
+
+  // Handle file preview/view
+  const handleViewFile = (attachment: TicketAttachment) => {
+    const dataUrl = getFileDataUrl(attachment);
+    if (isImageFile(attachment.file_name)) {
+      // For images, open in new window
+      const newWindow = window.open();
+      if (newWindow) {
+        newWindow.document.write(`
+          <html>
+            <head>
+              <title>${attachment.file_name}</title>
+              <style>
+                body {
+                  margin: 0;
+                  display: flex;
+                  justify-content: center;
+                  align-items: center;
+                  min-height: 100vh;
+                  background: #000;
+                }
+                img {
+                  max-width: 100%;
+                  max-height: 100vh;
+                  object-fit: contain;
+                }
+              </style>
+            </head>
+            <body>
+              <img src="${dataUrl}" alt="${attachment.file_name}" />
+            </body>
+          </html>
+        `);
+      }
+    } else {
+      // For other files, trigger download
+      const link = document.createElement("a");
+      link.href = dataUrl;
+      link.download = attachment.file_name;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  };
+
+  const getFileIcon = (fileName?: string) => {
+    if (!fileName) {
+      return (
+        <div className="w-12 h-12 bg-gray-500 rounded flex items-center justify-center">
+          <svg
+            className="w-6 h-6 text-white"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"
+            />
+          </svg>
+        </div>
+      );
+    }
+
     const extension = fileName.split(".").pop()?.toLowerCase();
     if (extension === "pdf") {
       return (
@@ -450,8 +698,32 @@ const CreateTicketModal: React.FC<CreateTicketModalProps> = ({
     );
   };
 
+  // Render file preview (thumbnail for images, icon for others)
+  const renderFilePreview = (attachment: TicketAttachment) => {
+    if (isImageFile(attachment.file_name)) {
+      const dataUrl = getFileDataUrl(attachment);
+      return (
+        <div className="w-12 h-12 bg-gray-100 rounded overflow-hidden shrink-0">
+          <img
+            src={dataUrl}
+            alt={attachment.file_name}
+            className="w-full h-full object-cover"
+            onError={(e) => {
+              // Fallback to icon if image fails to load
+              e.currentTarget.style.display = "none";
+              e.currentTarget.parentElement!.innerHTML = getFileIcon(
+                attachment.file_name
+              ).props.children;
+            }}
+          />
+        </div>
+      );
+    }
+    return getFileIcon(attachment.file_name);
+  };
+
   return (
-    <div className="fixed inset-0 z-50 overflow-y-auto">
+    <div className="fixed inset-0 z-50">
       <div
         className="fixed inset-0 bg-black/50 transition-opacity"
         onClick={onClose}
@@ -629,7 +901,7 @@ const CreateTicketModal: React.FC<CreateTicketModalProps> = ({
               {/* Details Tab - Only show in create/edit modes */}
               {activeTab === "details" &&
                 (mode === "create" || mode === "edit") && (
-                  <div className="p-6 space-y-4">
+                  <div className="p-5 mb-2 space-y-4">
                     {/* Project Name - Only in create mode */}
                     {mode === "create" && (
                       <div>
@@ -741,7 +1013,32 @@ const CreateTicketModal: React.FC<CreateTicketModalProps> = ({
                           </svg>
                         </div>
                         <span className="text-sm font-medium text-green-700">
-                          Three files uploaded successfully.
+                          Files uploaded successfully!
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Pending Upload Message */}
+                    {attachments.length > 0 && (
+                      <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 flex items-center gap-3">
+                        <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center shrink-0">
+                          <svg
+                            className="w-4 h-4 text-white"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              strokeWidth={2}
+                              d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                            />
+                          </svg>
+                        </div>
+                        <span className="text-sm font-medium text-blue-700">
+                          {attachments.length} file(s) ready to upload. Click
+                          "Save Attachments" to upload.
                         </span>
                       </div>
                     )}
@@ -814,165 +1111,192 @@ const CreateTicketModal: React.FC<CreateTicketModalProps> = ({
                             />
                           </svg>
                           <span className="text-sm font-semibold">
-                            Attachments (
-                            {existingAttachments.length + attachments.length})
+                            Attachments ({existingAttachments.length} uploaded,{" "}
+                            {attachments.length} pending)
                           </span>
                         </div>
 
                         <div className="space-y-3">
                           {/* Existing Attachments from Server */}
-                          {existingAttachments.map((attachment) => (
-                            <div
-                              key={attachment.id}
-                              className="flex items-center gap-4 p-3 bg-white border border-[#E1E4EA] rounded-xl group hover:shadow-md transition-shadow"
-                            >
-                              {/* File Icon */}
-                              {getFileIcon(attachment.file_name)}
-
-                              {/* File Info */}
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium text-dark truncate">
-                                  {attachment.file_name}
-                                </p>
-                                <div className="flex items-center gap-3 mt-1">
-                                  <span className="text-xs text-gray">
-                                    {formatFileSize(attachment.file_size)}
-                                  </span>
-                                  <span className="text-xs text-gray">
-                                    {new Date(
-                                      attachment.uploaded_at
-                                    ).toLocaleDateString()}
-                                  </span>
-                                  <span className="text-xs text-gray">
-                                    by {attachment.uploaded_by_name}
-                                  </span>
-                                </div>
-                              </div>
-
-                              {/* Action Buttons */}
-                              <div className="flex items-center gap-2">
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    ticketId &&
-                                    deleteAttachment(ticketId, attachment.id)
-                                  }
-                                  disabled={deletingFileId === attachment.id}
-                                  className="w-9 h-9 rounded-full bg-red-50 hover:bg-red-100 flex items-center justify-center transition-colors disabled:opacity-50"
+                          {existingAttachments.length > 0 && (
+                            <div className="space-y-2">
+                              <h4 className="text-xs font-semibold text-gray uppercase tracking-wide">
+                                Uploaded Files
+                              </h4>
+                              {existingAttachments.map((attachment) => (
+                                <div
+                                  key={attachment.id}
+                                  className="flex items-center gap-4 p-3 bg-white border border-[#E1E4EA] rounded-xl group hover:shadow-md transition-shadow"
                                 >
-                                  {deletingFileId === attachment.id ? (
-                                    <svg
-                                      className="w-4 h-4 text-red-500 animate-spin"
-                                      fill="none"
-                                      viewBox="0 0 24 24"
+                                  {/* File Preview/Icon */}
+                                  {renderFilePreview(attachment)}
+
+                                  {/* File Info */}
+                                  <div className="flex-1 min-w-0">
+                                    {/* <p className="text-sm font-medium text-dark truncate">
+                                      {attachment.file_name}
+                                    </p> */}
+                                    <div className="flex items-center gap-3 mt-1">
+                                      <span className="text-xs text-gray">
+                                        {formatFileSize(attachment.file_size)}
+                                      </span>
+                                      <span className="text-xs text-gray">
+                                        {new Date(
+                                          attachment.uploaded_at
+                                        ).toLocaleDateString()}
+                                      </span>
+                                      <span className="text-xs text-gray">
+                                        by {attachment.uploaded_by_name}
+                                      </span>
+                                    </div>
+                                  </div>
+
+                                  {/* Action Buttons */}
+                                  <div className="flex items-center gap-2">
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        ticketId &&
+                                        deleteAttachment(
+                                          ticketId,
+                                          attachment.id
+                                        )
+                                      }
+                                      disabled={
+                                        deletingFileId === attachment.id
+                                      }
+                                      className="w-9 h-9 rounded-full bg-red-50 hover:bg-red-100 flex items-center justify-center transition-colors disabled:opacity-50"
                                     >
-                                      <circle
-                                        className="opacity-25"
-                                        cx="12"
-                                        cy="12"
-                                        r="10"
+                                      {deletingFileId === attachment.id ? (
+                                        <svg
+                                          className="w-4 h-4 text-red-500 animate-spin"
+                                          fill="none"
+                                          viewBox="0 0 24 24"
+                                        >
+                                          <circle
+                                            className="opacity-25"
+                                            cx="12"
+                                            cy="12"
+                                            r="10"
+                                            stroke="currentColor"
+                                            strokeWidth="4"
+                                          ></circle>
+                                          <path
+                                            className="opacity-75"
+                                            fill="currentColor"
+                                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                                          ></path>
+                                        </svg>
+                                      ) : (
+                                        <svg
+                                          className="w-4 h-4 text-red-500"
+                                          fill="none"
+                                          stroke="currentColor"
+                                          viewBox="0 0 24 24"
+                                        >
+                                          <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            strokeWidth={2}
+                                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                                          />
+                                        </svg>
+                                      )}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleViewFile(attachment)}
+                                      className="w-9 h-9 rounded-full bg-blue-50 hover:bg-blue-100 flex items-center justify-center transition-colors"
+                                      title={
+                                        isImageFile(attachment.file_name)
+                                          ? "View image"
+                                          : "Download file"
+                                      }
+                                    >
+                                      <svg
+                                        className="w-4 h-4 text-primary"
+                                        fill="none"
                                         stroke="currentColor"
-                                        strokeWidth="4"
-                                      ></circle>
-                                      <path
-                                        className="opacity-75"
-                                        fill="currentColor"
-                                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                                      ></path>
-                                    </svg>
-                                  ) : (
-                                    <svg
-                                      className="w-4 h-4 text-red-500"
-                                      fill="none"
-                                      stroke="currentColor"
-                                      viewBox="0 0 24 24"
-                                    >
-                                      <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        strokeWidth={2}
-                                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                                      />
-                                    </svg>
-                                  )}
-                                </button>
-                                <a
-                                  href={attachment.file}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="w-9 h-9 rounded-full bg-blue-50 hover:bg-blue-100 flex items-center justify-center transition-colors"
-                                >
-                                  <svg
-                                    className="w-4 h-4 text-primary"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    viewBox="0 0 24 24"
-                                  >
-                                    <path
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                      strokeWidth={2}
-                                      d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
-                                    />
-                                  </svg>
-                                </a>
-                              </div>
+                                        viewBox="0 0 24 24"
+                                      >
+                                        {isImageFile(attachment.file_name) ? (
+                                          <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            strokeWidth={2}
+                                            d="M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                                          />
+                                        ) : (
+                                          <path
+                                            strokeLinecap="round"
+                                            strokeLinejoin="round"
+                                            strokeWidth={2}
+                                            d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                                          />
+                                        )}
+                                      </svg>
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
                             </div>
-                          ))}
+                          )}
 
                           {/* New Local Attachments (not yet uploaded) */}
-                          {attachments.map((file, index) => (
-                            <div
-                              key={`new-${index}`}
-                              className="flex items-center gap-4 p-3 bg-white border border-[#E1E4EA] rounded-xl group hover:shadow-md transition-shadow"
-                            >
-                              {/* File Icon */}
-                              {getFileIcon(file.name)}
-
-                              {/* File Info */}
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium text-dark truncate">
-                                  {file.name}
-                                </p>
-                                <div className="flex items-center gap-3 mt-1">
-                                  <span className="text-xs text-gray">
-                                    {formatFileSize(file.size)}
-                                  </span>
-                                  <span className="text-xs text-gray">
-                                    {new Date().toLocaleDateString()}
-                                  </span>
-                                  {uploadingFile && (
-                                    <span className="text-xs text-blue-500">
-                                      Uploading...
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-
-                              {/* Action Buttons */}
-                              <div className="flex items-center gap-2">
-                                <button
-                                  type="button"
-                                  onClick={() => removeAttachment(index)}
-                                  className="w-9 h-9 rounded-full bg-red-50 hover:bg-red-100 flex items-center justify-center transition-colors"
+                          {attachments.length > 0 && (
+                            <div className="space-y-2">
+                              <h4 className="text-xs font-semibold text-gray uppercase tracking-wide">
+                                Pending Upload
+                              </h4>
+                              {attachments.map((file, index) => (
+                                <div
+                                  key={`new-${index}`}
+                                  className="flex items-center gap-4 p-3 bg-blue-50 border border-blue-200 rounded-xl group hover:shadow-md transition-shadow"
                                 >
-                                  <svg
-                                    className="w-4 h-4 text-red-500"
-                                    fill="none"
-                                    stroke="currentColor"
-                                    viewBox="0 0 24 24"
-                                  >
-                                    <path
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                      strokeWidth={2}
-                                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                                    />
-                                  </svg>
-                                </button>
-                              </div>
+                                  {/* File Icon */}
+                                  {getFileIcon(file.name)}
+
+                                  {/* File Info */}
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-medium text-dark truncate">
+                                      {file.name}
+                                    </p>
+                                    <div className="flex items-center gap-3 mt-1">
+                                      <span className="text-xs text-gray">
+                                        {formatFileSize(file.size)}
+                                      </span>
+                                      <span className="text-xs text-blue-600 font-medium">
+                                        Ready to upload
+                                      </span>
+                                    </div>
+                                  </div>
+
+                                  {/* Action Buttons */}
+                                  <div className="flex items-center gap-2">
+                                    <button
+                                      type="button"
+                                      onClick={() => removeAttachment(index)}
+                                      className="w-9 h-9 rounded-full bg-red-50 hover:bg-red-100 flex items-center justify-center transition-colors"
+                                    >
+                                      <svg
+                                        className="w-4 h-4 text-red-500"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        viewBox="0 0 24 24"
+                                      >
+                                        <path
+                                          strokeLinecap="round"
+                                          strokeLinejoin="round"
+                                          strokeWidth={2}
+                                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                                        />
+                                      </svg>
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
                             </div>
-                          ))}
+                          )}
                         </div>
                       </div>
                     )}
@@ -985,15 +1309,39 @@ const CreateTicketModal: React.FC<CreateTicketModalProps> = ({
               <button
                 type="button"
                 onClick={onClose}
-                className="px-6 py-2.5 text-sm font-medium text-gray hover:text-dark hover:bg-[#F5F7FA] rounded-xl transition-colors"
+                disabled={isCreating}
+                className="px-6 py-2.5 text-sm font-medium text-gray hover:text-dark hover:bg-[#F5F7FA] rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="px-6 py-2.5 text-sm font-medium text-white bg-primary hover:bg-blue-600 rounded-xl transition-colors shadow-sm hover:shadow"
+                disabled={isCreating}
+                className="px-6 py-2.5 text-sm font-medium text-white bg-primary hover:bg-blue-600 rounded-xl transition-colors shadow-sm hover:shadow disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
               >
-                {mode === "create" && "Create Ticket"}
+                {isCreating && (
+                  <svg
+                    className="w-4 h-4 animate-spin"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                  >
+                    <circle
+                      className="opacity-25"
+                      cx="12"
+                      cy="12"
+                      r="10"
+                      stroke="currentColor"
+                      strokeWidth="4"
+                    ></circle>
+                    <path
+                      className="opacity-75"
+                      fill="currentColor"
+                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                    ></path>
+                  </svg>
+                )}
+                {mode === "create" &&
+                  (isCreating ? "Creating..." : "Create Ticket")}
                 {mode === "edit" && "Update Ticket"}
                 {mode === "assign" && "Assign"}
                 {mode === "attachment" && "Save Attachments"}

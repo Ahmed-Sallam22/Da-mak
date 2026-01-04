@@ -87,10 +87,14 @@ const CustomSLAModal: React.FC<CustomSLAModalProps> = ({
               </label>
               <div className="relative">
                 <input
-                  type="number"
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
                   value={urgent}
-                  onChange={(e) => setUrgent(Number(e.target.value))}
-                  min={1}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/[^0-9]/g, "");
+                    setUrgent(value ? Number(value) : 0);
+                  }}
                   className="w-full px-4 py-3 rounded-xl border border-[#E1E4EA] 
                            focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary
                            text-sm transition-all pr-20"
@@ -112,10 +116,14 @@ const CustomSLAModal: React.FC<CustomSLAModalProps> = ({
               </label>
               <div className="relative">
                 <input
-                  type="number"
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
                   value={high}
-                  onChange={(e) => setHigh(Number(e.target.value))}
-                  min={1}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/[^0-9]/g, "");
+                    setHigh(value ? Number(value) : 0);
+                  }}
                   className="w-full px-4 py-3 rounded-xl border border-[#E1E4EA] 
                            focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary
                            text-sm transition-all pr-20"
@@ -137,10 +145,14 @@ const CustomSLAModal: React.FC<CustomSLAModalProps> = ({
               </label>
               <div className="relative">
                 <input
-                  type="number"
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
                   value={medium}
-                  onChange={(e) => setMedium(Number(e.target.value))}
-                  min={1}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/[^0-9]/g, "");
+                    setMedium(value ? Number(value) : 0);
+                  }}
                   className="w-full px-4 py-3 rounded-xl border border-[#E1E4EA] 
                            focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary
                            text-sm transition-all pr-20"
@@ -162,10 +174,14 @@ const CustomSLAModal: React.FC<CustomSLAModalProps> = ({
               </label>
               <div className="relative">
                 <input
-                  type="number"
+                  type="text"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
                   value={low}
-                  onChange={(e) => setLow(Number(e.target.value))}
-                  min={1}
+                  onChange={(e) => {
+                    const value = e.target.value.replace(/[^0-9]/g, "");
+                    setLow(value ? Number(value) : 0);
+                  }}
                   className="w-full px-4 py-3 rounded-xl border border-[#E1E4EA] 
                            focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary
                            text-sm transition-all pr-20"

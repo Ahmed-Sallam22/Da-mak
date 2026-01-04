@@ -24,7 +24,24 @@ const MultiSelect: React.FC<MultiSelectProps> = ({
 }) => {
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [dropdownPosition, setDropdownPosition] = useState({
+    top: 0,
+    left: 0,
+    width: 0,
+  });
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Update dropdown position when opened
+  useEffect(() => {
+    if (isOpen && dropdownRef.current) {
+      const rect = dropdownRef.current.getBoundingClientRect();
+      setDropdownPosition({
+        top: rect.bottom + 8,
+        left: rect.left,
+        width: rect.width,
+      });
+    }
+  }, [isOpen]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -151,7 +168,15 @@ const MultiSelect: React.FC<MultiSelectProps> = ({
 
       {/* Dropdown Menu */}
       {isOpen && (
-        <div className="absolute z-100 w-full mt-2 bg-white border border-[#E1E4EA] rounded-xl shadow-lg max-h-80 overflow-hidden">
+        <div
+          className="fixed z-50 bg-white border border-[#E1E4EA] rounded-xl shadow-lg overflow-hidden"
+          style={{
+            width: `${dropdownPosition.width}px`,
+            top: `${dropdownPosition.top}px`,
+            left: `${dropdownPosition.left}px`,
+            maxHeight: "320px",
+          }}
+        >
           {/* Search Input */}
           <div className="p-3 border-b border-[#E1E4EA]">
             <div className="relative">
@@ -179,7 +204,7 @@ const MultiSelect: React.FC<MultiSelectProps> = ({
           </div>
 
           {/* Options List */}
-          <div className="max-h-60 overflow-y-auto z-40">
+          <div className="max-h-60 overflow-y-auto">
             {filteredOptions.length === 0 ? (
               <div className="p-4 text-center text-gray text-sm">
                 No users found
