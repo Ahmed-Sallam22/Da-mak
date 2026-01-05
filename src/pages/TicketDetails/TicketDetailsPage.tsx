@@ -187,7 +187,7 @@ const TicketDetailsPage: React.FC = () => {
                   "No Project"}
               </p>
             </div>
-            {isClient && (
+            {isClient && currentTicket.status === "RESOLVED" && (
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => setShowRejectModal(true)}
@@ -332,7 +332,7 @@ const TicketDetailsPage: React.FC = () => {
                       className="group relative rounded-xl overflow-hidden border border-[#E1E4EA] bg-white hover:shadow-lg transition-all"
                     >
                       {/* Preview Area */}
-                      <div className="aspect-video relative bg-gradient-to-br from-blue-50 to-blue-100 flex items-center justify-center overflow-hidden">
+                      <div className="aspect-video relative bg-linear-to-br from-blue-50 to-blue-100 flex items-center justify-center overflow-hidden">
                         {fileIsImage && imageUrl ? (
                           <img
                             src={imageUrl}

@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { Button, Input } from "../../components/shared";
 import { EyeIcon, EyeSlashIcon, LogoIcon } from "../../assets/icons";
 import { usePageTitle } from "../../hooks";
@@ -11,7 +11,6 @@ import toast from "react-hot-toast";
 const LoginPage: React.FC = () => {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const location = useLocation();
   const dispatch = useAppDispatch();
   const { loading, error, isAuthenticated } = useAppSelector(
     (state) => state.auth
@@ -27,12 +26,10 @@ const LoginPage: React.FC = () => {
   // Redirect if already authenticated
   useEffect(() => {
     if (isAuthenticated) {
-      const from =
-        (location.state as { from?: { pathname: string } })?.from?.pathname ||
-        "/dashboard";
-      navigate(from, { replace: true });
+      // Always redirect to dashboard after login
+      navigate("/dashboard", { replace: true });
     }
-  }, [isAuthenticated, navigate, location]);
+  }, [isAuthenticated, navigate]);
 
   // Show error toast
   useEffect(() => {

@@ -17,7 +17,13 @@ import type { SortDirection } from "../../components/shared/Table/Table.types";
 import type { Ticket } from "../../types/ticket";
 import { usePageTitle } from "../../hooks/usePageTitle";
 import { useAppDispatch, useAppSelector } from "../../store/hooks";
-import { fetchTickets } from "../../store/slices/ticketSlice";
+import {
+  fetchTickets,
+  approveTicket,
+  rejectTicket,
+} from "../../store/slices/ticketSlice";
+import toast from "react-hot-toast";
+import ApproveRejectModal from "../TicketDetails/components/ApproveRejectModal";
 
 const MyTicketsPage: React.FC = () => {
   const { t } = useTranslation();
@@ -45,6 +51,11 @@ const MyTicketsPage: React.FC = () => {
   const [selectedTicketId, setSelectedTicketId] = useState<
     number | undefined
   >();
+  const [showApproveModal, setShowApproveModal] = useState(false);
+  const [showRejectModal, setShowRejectModal] = useState(false);
+  const [ticketToApproveReject, setTicketToApproveReject] = useState<
+    number | null
+  >(null);
 
   // Check if user is a client to show create button
   const isClient = user?.role?.toLowerCase() === "client";
@@ -145,6 +156,54 @@ const MyTicketsPage: React.FC = () => {
     setIsCreateModalOpen(true);
   };
 
+  // Handle approve ticket (client only)
+  const handleApproveClick = (ticketId: number) => {
+    setTicketToApproveReject(ticketId);
+    setShowApproveModal(true);
+  };
+
+  // Handle reject ticket (client only)
+  const handleRejectClick = (ticketId: number) => {
+    setTicketToApproveReject(ticketId);
+    setShowRejectModal(true);
+  };
+
+  // Handle approve submission
+  const handleApprove = async (reason: string) => {
+    if (!ticketToApproveReject) return;
+
+    try {
+      await dispatch(
+        approveTicket({ ticketId: ticketToApproveReject, reason })
+      ).unwrap();
+      toast.success("Ticket approved successfully");
+      setShowApproveModal(false);
+      setTicketToApproveReject(null);
+      // Refresh tickets list
+      dispatch(fetchTickets({ page: currentPage, page_size: pageSize }));
+    } catch (error) {
+      toast.error((error as string) || "Failed to approve ticket");
+    }
+  };
+
+  // Handle reject submission
+  const handleReject = async (reason: string) => {
+    if (!ticketToApproveReject) return;
+
+    try {
+      await dispatch(
+        rejectTicket({ ticketId: ticketToApproveReject, reason })
+      ).unwrap();
+      toast.success("Ticket rejected successfully");
+      setShowRejectModal(false);
+      setTicketToApproveReject(null);
+      // Refresh tickets list
+      dispatch(fetchTickets({ page: currentPage, page_size: pageSize }));
+    } catch (error) {
+      toast.error((error as string) || "Failed to reject ticket");
+    }
+  };
+
   // Handle create ticket submit
   const handleSubmitTicket = (data: TicketFormData) => {
     console.log("Ticket data:", data);
@@ -214,11 +273,13 @@ const MyTicketsPage: React.FC = () => {
       header: t("myTickets.table.status"),
       sortable: true,
       resizable: true,
-      minWidth: 150,
+      minWidth: 250,
       tooltip: "Current ticket status",
       render: (_value, ticket) => (
         <Badge variant={ticket.status as BadgeVariant}>
-          {ticket.status_display || ticket.status}
+          {ticket.status === "RESOLVED"
+            ? `${ticket.status_display} - Waiting for approval`
+            : ticket.status_display || ticket.status}
         </Badge>
       ),
     },
@@ -299,6 +360,52 @@ const MyTicketsPage: React.FC = () => {
               />
             </svg>
           </button>
+
+          {/* Reject Icon - Client only, RESOLVED status only */}
+          {isClient && ticket.status === "RESOLVED" && (
+            <button
+              onClick={() => handleRejectClick(ticket.id)}
+              className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+              title="Reject Ticket"
+            >
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              </svg>
+            </button>
+          )}
+
+          {/* Approve Icon - Client only, RESOLVED status only */}
+          {isClient && ticket.status === "RESOLVED" && (
+            <button
+              onClick={() => handleApproveClick(ticket.id)}
+              className="p-2 text-green-500 hover:bg-green-50 rounded-lg transition-colors"
+              title="Approve Ticket"
+            >
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M5 13l4 4L19 7"
+                />
+              </svg>
+            </button>
+          )}
         </div>
       ),
     },
@@ -402,6 +509,32 @@ const MyTicketsPage: React.FC = () => {
         onSubmit={handleSubmitTicket}
         mode={modalMode}
         ticketId={selectedTicketId}
+      />
+
+      {/* Approve Ticket Modal */}
+      <ApproveRejectModal
+        isOpen={showApproveModal}
+        onClose={() => {
+          setShowApproveModal(false);
+          setTicketToApproveReject(null);
+        }}
+        onSubmit={handleApprove}
+        type="approve"
+        title="Approve Ticket"
+        message="Please provide a reason for approving this ticket"
+      />
+
+      {/* Reject Ticket Modal */}
+      <ApproveRejectModal
+        isOpen={showRejectModal}
+        onClose={() => {
+          setShowRejectModal(false);
+          setTicketToApproveReject(null);
+        }}
+        onSubmit={handleReject}
+        type="reject"
+        title="Reject Ticket"
+        message="Please provide a reason for rejecting this ticket"
       />
     </div>
   );

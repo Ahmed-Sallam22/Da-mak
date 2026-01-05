@@ -14,7 +14,15 @@ import { getAccountColumns, getProjectColumns } from "./constants/tableColumns";
 import type { OrgAccountFormData } from "./components/AddOrgAccountModal";
 import type { ProjectFormData } from "./components/AddProjectModal";
 import { usePageTitle } from "../../hooks/usePageTitle";
-import api from "../../services/api";
+import { useAppDispatch, useAppSelector } from "../../store/hooks";
+import {
+  fetchOrganizationDetails,
+  updateOrganization,
+  updateNotificationPreferences,
+  setCustomSLA,
+  setDefaultSLA,
+  unassignSLA,
+} from "../../store/slices/organizationSlice";
 import toast from "react-hot-toast";
 
 interface OrganizationDetails {
@@ -66,20 +74,51 @@ const OrganizationDetailsPage: React.FC = () => {
   usePageTitle("تفاصيل المؤسسة");
   const { id } = useParams();
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
 
-  // State
-  const [organization, setOrganization] = useState<OrganizationDetails | null>(
-    null
+  // Redux state
+  const { currentOrganization: organization, loading } = useAppSelector(
+    (state) => state.organizations
   );
-  const [loading, setLoading] = useState(false);
 
   // Local state for notification preferences (before saving)
-  const [localNotifications, setLocalNotifications] = useState({
-    notify_on_opened: false,
-    notify_on_resolved: false,
-    notify_on_assigned: false,
-    notify_on_in_progress: false,
+  // Track which org id we've initialized notifications for
+  const [notificationsState, setNotificationsState] = useState<{
+    orgId: number | null;
+    preferences: {
+      notify_on_opened: boolean;
+      notify_on_resolved: boolean;
+      notify_on_assigned: boolean;
+      notify_on_in_progress: boolean;
+    };
+  }>({
+    orgId: null,
+    preferences: {
+      notify_on_opened: false,
+      notify_on_resolved: false,
+      notify_on_assigned: false,
+      notify_on_in_progress: false,
+    },
   });
+
+  // Derive local notifications - sync when org changes
+  const localNotifications = useMemo(() => {
+    if (organization && organization.id !== notificationsState.orgId) {
+      // New organization loaded, use its preferences
+      return organization.notification_preferences;
+    }
+    return notificationsState.preferences;
+  }, [organization, notificationsState]);
+
+  // Function to update local notifications
+  const setLocalNotifications = (
+    preferences: typeof notificationsState.preferences
+  ) => {
+    setNotificationsState({
+      orgId: organization?.id || null,
+      preferences,
+    });
+  };
 
   // Modal states
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -93,33 +132,11 @@ const OrganizationDetailsPage: React.FC = () => {
   const [isUpdateAdminMode, setIsUpdateAdminMode] = useState(false);
 
   // Fetch organization details
-  const fetchOrganizationDetails = async () => {
-    if (!id) return;
-    setLoading(true);
-    try {
-      const response = await api.get<OrganizationDetails>(
-        `/organizations/${id}/details/`
-      );
-      setOrganization(response.data);
-    } catch (error) {
-      console.error("Failed to fetch organization details:", error);
-      toast.error("Failed to load organization details");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   useEffect(() => {
-    fetchOrganizationDetails();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
-
-  // Sync local notifications with fetched organization data
-  useEffect(() => {
-    if (organization) {
-      setLocalNotifications(organization.notification_preferences);
+    if (id) {
+      dispatch(fetchOrganizationDetails(parseInt(id)));
     }
-  }, [organization]);
+  }, [dispatch, id]);
 
   // Mock data for tables (will be replaced with API data later)
   const accountColumns = useMemo(() => getAccountColumns(), []);
@@ -170,10 +187,10 @@ const OrganizationDetailsPage: React.FC = () => {
   const toggleNotification = (
     key: keyof OrganizationDetails["notification_preferences"]
   ) => {
-    setLocalNotifications((prev) => ({
-      ...prev,
-      [key]: !prev[key],
-    }));
+    setLocalNotifications({
+      ...localNotifications,
+      [key]: !localNotifications[key],
+    });
   };
 
   // Notification preferences configuration
@@ -201,6 +218,7 @@ const OrganizationDetailsPage: React.FC = () => {
         onChange: () => toggleNotification("notify_on_resolved"),
       },
     ];
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [organization, localNotifications]);
 
   // Page header actions
@@ -238,15 +256,12 @@ const OrganizationDetailsPage: React.FC = () => {
     if (!organization || !id) return;
 
     try {
-      await api.patch(
-        `/organizations/${id}/notification-preferences/`,
-        localNotifications
-      );
-      // Update the organization state with saved values
-      setOrganization({
-        ...organization,
-        notification_preferences: localNotifications,
-      });
+      await dispatch(
+        updateNotificationPreferences({
+          orgId: parseInt(id),
+          preferences: localNotifications,
+        })
+      ).unwrap();
       toast.success("Notification preferences saved successfully");
     } catch (error) {
       console.error("Failed to save notification preferences:", error);
@@ -262,13 +277,14 @@ const OrganizationDetailsPage: React.FC = () => {
     if (!id) return;
 
     try {
-      await api.patch(`/organizations/${id}/`, {
-        name: data.name,
-        code: data.code,
-      });
+      await dispatch(
+        updateOrganization({
+          orgId: parseInt(id),
+          orgData: data,
+        })
+      ).unwrap();
       toast.success("Organization updated successfully");
       setIsEditModalOpen(false);
-      fetchOrganizationDetails(); // Refresh data
     } catch (error) {
       console.error("Failed to update organization:", error);
       toast.error("Failed to update organization");
@@ -284,16 +300,14 @@ const OrganizationDetailsPage: React.FC = () => {
     if (!id) return;
 
     try {
-      await api.post("/organization-sla/", {
-        organization: parseInt(id),
-        urgent_response_minutes: data.urgent,
-        high_response_minutes: data.high,
-        medium_response_minutes: data.medium,
-        low_response_minutes: data.low,
-      });
+      await dispatch(
+        setCustomSLA({
+          orgId: parseInt(id),
+          slaData: data,
+        })
+      ).unwrap();
       toast.success("Custom SLA configured successfully");
       setIsCustomSLAModalOpen(false);
-      fetchOrganizationDetails(); // Refresh data
     } catch (error) {
       console.error("Failed to set custom SLA:", error);
       toast.error("Failed to set custom SLA");
@@ -302,27 +316,26 @@ const OrganizationDetailsPage: React.FC = () => {
 
   const handleAddAccount = (data: OrgAccountFormData) => {
     console.log("Add account:", data);
-    // The API call is already handled in the modal, just close it
     setIsAddAccountModalOpen(false);
-    // Optionally refresh the organization details to get updated user list
-    fetchOrganizationDetails();
+    if (id) {
+      dispatch(fetchOrganizationDetails(parseInt(id)));
+    }
   };
 
   const handleAddProject = (data: ProjectFormData) => {
     console.log("Add project:", data);
-    // The API call is already handled in the modal, just close it
     setIsAddProjectModalOpen(false);
-    // Optionally refresh the organization details to get updated project list
-    fetchOrganizationDetails();
+    if (id) {
+      dispatch(fetchOrganizationDetails(parseInt(id)));
+    }
   };
 
   const handleSetDefaultSLA = async () => {
     if (!id) return;
 
     try {
-      await api.post(`/organizations/${id}/assign-default-sla/`);
+      await dispatch(setDefaultSLA(parseInt(id))).unwrap();
       toast.success("Default SLA assigned successfully");
-      fetchOrganizationDetails(); // Refresh data
     } catch (error) {
       console.error("Failed to assign default SLA:", error);
       toast.error("Failed to assign default SLA");
@@ -333,9 +346,8 @@ const OrganizationDetailsPage: React.FC = () => {
     if (!id) return;
 
     try {
-      await api.post(`/organizations/${id}/unassign-sla/`);
+      await dispatch(unassignSLA(parseInt(id))).unwrap();
       toast.success("SLA unassigned successfully");
-      fetchOrganizationDetails(); // Refresh data
     } catch (error) {
       console.error("Failed to unassign SLA:", error);
       toast.error("Failed to unassign SLA");
@@ -448,7 +460,9 @@ const OrganizationDetailsPage: React.FC = () => {
         onClose={() => setIsAssignAdminModalOpen(false)}
         onSuccess={() => {
           setIsAssignAdminModalOpen(false);
-          fetchOrganizationDetails();
+          if (id) {
+            dispatch(fetchOrganizationDetails(parseInt(id)));
+          }
         }}
         projectId={selectedProjectId || 0}
         isUpdateMode={isUpdateAdminMode}

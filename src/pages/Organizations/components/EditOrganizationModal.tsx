@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useScrollLock } from "../../../hooks/useScrollLock";
 import Toggle from "../../../components/ui/Toggle";
+import { Input } from "../../../components/shared";
 
 interface EditOrganizationModalProps {
   isOpen: boolean;
@@ -70,34 +71,24 @@ const EditOrganizationModal: React.FC<EditOrganizationModalProps> = ({
           <form onSubmit={handleSubmit} className="p-6">
             {/* Organization Name */}
             <div className="mb-4">
-              <label className="block text-sm font-semibold text-dark mb-2">
-                Organization Name
-              </label>
-              <input
+              <Input
+                label="Organization Name"
                 type="text"
                 value={name}
-                onChange={(e) => setName(e.target.value)}
+                onChange={setName}
                 placeholder="Enter Organization Name"
-                className="w-full px-4 py-3 rounded-xl border border-[#E1E4EA] 
-                         focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary
-                         text-sm placeholder-gray transition-all"
                 required
               />
             </div>
 
             {/* Organization Code */}
             <div className="mb-4">
-              <label className="block text-sm font-semibold text-dark mb-2">
-                Organization Code
-              </label>
-              <input
+              <Input
+                label="Organization Code"
                 type="text"
                 value={code}
-                onChange={(e) => setCode(e.target.value)}
+                onChange={setCode}
                 placeholder="Enter Organization Code"
-                className="w-full px-4 py-3 rounded-xl border border-[#E1E4EA] 
-                         focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary
-                         text-sm placeholder-gray transition-all"
                 required
               />
             </div>
@@ -105,7 +96,7 @@ const EditOrganizationModal: React.FC<EditOrganizationModalProps> = ({
             {/* Status Toggle */}
             <div className="p-4 bg-[#F5F7FA] rounded-xl mb-6">
               <Toggle
-                label="Status"
+                label="Activation"
                 value={status}
                 onChange={() => setStatus(!status)}
                 variant="green"

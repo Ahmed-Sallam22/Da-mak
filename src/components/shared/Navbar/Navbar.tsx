@@ -13,7 +13,7 @@ const Navbar: React.FC<NavbarProps> = ({
   userAvatar,
   onLogoClick,
   onNotificationClick,
-  onSearchClick,
+  // onSearchClick,
   onLogout,
 }) => {
   const navigate = useNavigate();
@@ -27,6 +27,9 @@ const Navbar: React.FC<NavbarProps> = ({
   const isSuperAdmin =
     user?.role?.toUpperCase().replace(/_/g, "") === "SUPERADMIN" ||
     user?.role === "SUPER_ADMIN";
+
+  // Check if user is client
+  const isClient = user?.role?.toUpperCase() === "CLIENT";
 
   const [showProfileDropdown, setShowProfileDropdown] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
@@ -99,6 +102,8 @@ const Navbar: React.FC<NavbarProps> = ({
     if (onLogout) {
       onLogout();
     } else {
+      // Clear any stored redirect path before logout
+      sessionStorage.removeItem("redirectAfterLogin");
       navigate("/");
     }
   };
@@ -162,7 +167,7 @@ const Navbar: React.FC<NavbarProps> = ({
           />
         </svg>
       ),
-      visible: true,
+      visible: !isClient, // Hide for CLIENT users
     },
     {
       label: t("navbar.userManagement"),
@@ -289,7 +294,7 @@ const Navbar: React.FC<NavbarProps> = ({
             </div>
 
             {/* Search */}
-            <button
+            {/* <button
               onClick={onSearchClick}
               className="bg-white p-2.5 rounded-xl  text-gray hover:text-dark hover:bg-[#F5F7FA] 
                           transition-all duration-150"
@@ -308,7 +313,7 @@ const Navbar: React.FC<NavbarProps> = ({
                   d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
                 />
               </svg>
-            </button>
+            </button> */}
 
             {/* Profile Dropdown */}
             <div className="relative " ref={dropdownRef}>

@@ -19,7 +19,11 @@ import {
   TicketDetailsPage,
 } from "./pages";
 import { MainLayout } from "./layouts";
-import { ProtectedRoute, SuperAdminRoute } from "./components/layout";
+import {
+  ProtectedRoute,
+  SuperAdminRoute,
+  NonClientRoute,
+} from "./components/layout";
 
 function App() {
   return (
@@ -69,7 +73,9 @@ function App() {
             path="/tickets-board"
             element={
               <ProtectedRoute>
-                <TicketsBoardPage />
+                <NonClientRoute>
+                  <TicketsBoardPage />
+                </NonClientRoute>
               </ProtectedRoute>
             }
           />

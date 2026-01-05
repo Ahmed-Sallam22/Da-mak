@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { useScrollLock } from "../../../hooks/useScrollLock";
-import { SearchableSelect } from "../../../components/shared";
-import api from "../../../services/api";
+import { SearchableSelect, Input } from "../../../components/shared";
+import { useAppDispatch, useAppSelector } from "../../../store/hooks";
+import { fetchUsersByRole } from "../../../store/slices/userSlice";
+import { createProject } from "../../../store/slices/organizationSlice";
 import toast from "react-hot-toast";
 
 export interface ProjectFormData {
@@ -10,22 +12,6 @@ export interface ProjectFormData {
   organization: number;
   description: string;
   project_admin: number | null;
-}
-
-interface Admin {
-  id: number;
-  username: string;
-  email: string;
-  first_name: string;
-  last_name: string;
-  full_name: string;
-  role: string;
-}
-
-interface AdminsResponse {
-  role: string;
-  count: number;
-  users: Admin[];
 }
 
 interface AddProjectModalProps {
@@ -43,6 +29,9 @@ const AddProjectModal: React.FC<AddProjectModalProps> = ({
   organizationId,
   organizationName,
 }) => {
+  const dispatch = useAppDispatch();
+  const { usersByRole } = useAppSelector((state) => state.users);
+
   const [formData, setFormData] = useState<ProjectFormData>({
     name: "",
     code: "",
@@ -51,36 +40,23 @@ const AddProjectModal: React.FC<AddProjectModalProps> = ({
     project_admin: null,
   });
 
-  const [admins, setAdmins] = useState<Array<{ value: string; label: string }>>(
-    []
-  );
   const [loading, setLoading] = useState(false);
 
   // Lock scroll when modal is open
   useScrollLock(isOpen);
 
-  // Fetch admins from API
+  // Fetch admins from Redux
   useEffect(() => {
-    const fetchAdmins = async () => {
-      try {
-        const response = await api.get<AdminsResponse>(
-          "/users/by_role/?role=ADMIN"
-        );
-        const adminOptions = response.data.users.map((admin) => ({
-          value: admin.id.toString(),
-          label: admin.full_name || admin.username,
-        }));
-        setAdmins(adminOptions);
-      } catch (error) {
-        console.error("Failed to fetch admins:", error);
-        toast.error("Failed to load admins");
-      }
-    };
-
     if (isOpen) {
-      fetchAdmins();
+      dispatch(fetchUsersByRole("ADMIN"));
     }
-  }, [isOpen]);
+  }, [isOpen, dispatch]);
+
+  // Convert admins to options format
+  const admins = usersByRole.map((admin) => ({
+    value: admin.id.toString(),
+    label: admin.full_name || admin.username,
+  }));
 
   // Update organization ID when it changes
   useEffect(() => {
@@ -106,7 +82,7 @@ const AddProjectModal: React.FC<AddProjectModalProps> = ({
 
     setLoading(true);
     try {
-      await api.post("/projects/", formData);
+      await dispatch(createProject(formData)).unwrap();
       toast.success("Project created successfully");
       onSubmit(formData);
       onClose();
@@ -120,16 +96,8 @@ const AddProjectModal: React.FC<AddProjectModalProps> = ({
       });
     } catch (error: unknown) {
       console.error("Failed to create project:", error);
-      let errorMessage = "Failed to create project";
-      if (error && typeof error === "object" && "response" in error) {
-        const axiosError = error as {
-          response?: { data?: { detail?: string; message?: string } };
-        };
-        errorMessage =
-          axiosError.response?.data?.detail ||
-          axiosError.response?.data?.message ||
-          errorMessage;
-      }
+      const errorMessage =
+        typeof error === "string" ? error : "Failed to create project";
       toast.error(errorMessage);
     } finally {
       setLoading(false);
@@ -171,49 +139,36 @@ const AddProjectModal: React.FC<AddProjectModalProps> = ({
           <form onSubmit={handleSubmit} className="p-6">
             {/* Project Name */}
             <div className="mb-4">
-              <label className="block text-sm font-semibold text-dark mb-2">
-                Project Name
-              </label>
-              <input
+              <Input
+                label="Project Name"
                 type="text"
                 value={formData.name}
-                onChange={(e) => handleChange("name", e.target.value)}
+                onChange={(value) => handleChange("name", value)}
                 placeholder="Enter Project Name"
-                className="w-full px-4 py-3 rounded-xl border border-[#E1E4EA] 
-                         focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary
-                         text-sm placeholder-gray transition-all"
                 required
               />
             </div>
 
             {/* Project Code */}
             <div className="mb-4">
-              <label className="block text-sm font-semibold text-dark mb-2">
-                Project Code
-              </label>
-              <input
+              <Input
+                label="Project Code"
                 type="text"
                 value={formData.code}
-                onChange={(e) => handleChange("code", e.target.value)}
+                onChange={(value) => handleChange("code", value)}
                 placeholder="Enter Project Code"
-                className="w-full px-4 py-3 rounded-xl border border-[#E1E4EA] 
-                         focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary
-                         text-sm placeholder-gray transition-all"
                 required
               />
             </div>
 
             {/* Organization (Disabled) */}
             <div className="mb-4">
-              <label className="block text-sm font-semibold text-dark mb-2">
-                Organization
-              </label>
-              <input
+              <Input
+                label="Organization"
                 type="text"
                 value={organizationName}
+                onChange={() => {}}
                 disabled
-                className="w-full px-4 py-3 rounded-xl border border-[#E1E4EA] 
-                         bg-[#F5F7FA] text-sm text-gray cursor-not-allowed"
               />
             </div>
 

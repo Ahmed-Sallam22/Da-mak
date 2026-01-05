@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useScrollLock } from "../../../hooks/useScrollLock";
+import { Input } from "../../../components/shared";
 
 interface CustomSLAModalProps {
   isOpen: boolean;
@@ -86,21 +87,17 @@ const CustomSLAModal: React.FC<CustomSLAModalProps> = ({
                 </span>
               </label>
               <div className="relative">
-                <input
+                <Input
                   type="text"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  value={urgent}
-                  onChange={(e) => {
-                    const value = e.target.value.replace(/[^0-9]/g, "");
-                    setUrgent(value ? Number(value) : 0);
+                  value={urgent.toString()}
+                  onChange={(value) => {
+                    const numValue = value.replace(/[^0-9]/g, "");
+                    setUrgent(numValue ? Number(numValue) : 0);
                   }}
-                  className="w-full px-4 py-3 rounded-xl border border-[#E1E4EA] 
-                           focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary
-                           text-sm transition-all pr-20"
+                  placeholder="Enter minutes"
                   required
                 />
-                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-gray">
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-gray pointer-events-none">
                   minutes
                 </span>
               </div>
@@ -115,21 +112,17 @@ const CustomSLAModal: React.FC<CustomSLAModalProps> = ({
                 </span>
               </label>
               <div className="relative">
-                <input
+                <Input
                   type="text"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  value={high}
-                  onChange={(e) => {
-                    const value = e.target.value.replace(/[^0-9]/g, "");
-                    setHigh(value ? Number(value) : 0);
+                  value={high.toString()}
+                  onChange={(value) => {
+                    const numValue = value.replace(/[^0-9]/g, "");
+                    setHigh(numValue ? Number(numValue) : 0);
                   }}
-                  className="w-full px-4 py-3 rounded-xl border border-[#E1E4EA] 
-                           focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary
-                           text-sm transition-all pr-20"
+                  placeholder="Enter minutes"
                   required
                 />
-                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-gray">
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-gray pointer-events-none">
                   minutes
                 </span>
               </div>
@@ -144,21 +137,17 @@ const CustomSLAModal: React.FC<CustomSLAModalProps> = ({
                 </span>
               </label>
               <div className="relative">
-                <input
+                <Input
                   type="text"
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  value={medium}
-                  onChange={(e) => {
-                    const value = e.target.value.replace(/[^0-9]/g, "");
-                    setMedium(value ? Number(value) : 0);
+                  value={medium.toString()}
+                  onChange={(value) => {
+                    const numValue = value.replace(/[^0-9]/g, "");
+                    setMedium(numValue ? Number(numValue) : 0);
                   }}
-                  className="w-full px-4 py-3 rounded-xl border border-[#E1E4EA] 
-                           focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary
-                           text-sm transition-all pr-20"
+                  placeholder="Enter minutes"
                   required
                 />
-                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-gray">
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-sm text-gray pointer-events-none">
                   minutes
                 </span>
               </div>

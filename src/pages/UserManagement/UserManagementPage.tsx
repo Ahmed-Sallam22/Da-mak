@@ -6,10 +6,19 @@ import Table from "../../components/shared/Table/Table";
 import Pagination from "../../components/shared/Pagination/Pagination";
 import Badge from "../../components/shared/Badge/Badge";
 import SearchableSelect from "../../components/shared/SearchableSelect/SearchableSelect";
+import Input from "../../components/shared/Input/Input";
+import { EyeIcon, EyeSlashIcon } from "../../assets/icons";
 import type { TableColumn } from "../../components/shared/Table/Table.types";
 import type { SortDirection } from "../../components/shared/Table/Table.types";
 import { usePageTitle } from "../../hooks/usePageTitle";
-import api from "../../services/api";
+import { useAppDispatch, useAppSelector } from "../../store/hooks";
+import {
+  fetchUsers,
+  fetchRoles,
+  toggleUserStatus,
+  createUser,
+  updateUser,
+} from "../../store/slices/userSlice";
 import toast from "react-hot-toast";
 
 interface User {
@@ -33,16 +42,15 @@ interface Role {
   display: string;
 }
 
-interface UsersResponse {
-  count: number;
-  next: string | null;
-  previous: string | null;
-  results: User[];
-}
-
 const UserManagementPage: React.FC = () => {
   usePageTitle("إدارة المستخدمين");
   const { t } = useTranslation();
+  const dispatch = useAppDispatch();
+
+  // Redux state
+  const { users, roles, loading } = useAppSelector((state) => state.users);
+
+  // Local state
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -50,51 +58,17 @@ const UserManagementPage: React.FC = () => {
   const [showEditModal, setShowEditModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
 
-  // Data states
-  const [users, setUsers] = useState<User[]>([]);
-  const [roles, setRoles] = useState<Role[]>([]);
-  const [loading, setLoading] = useState(false);
-
-  // Fetch users from API
-  const fetchUsers = async () => {
-    setLoading(true);
-    try {
-      const response = await api.get<UsersResponse>("/users/");
-      setUsers(response.data.results);
-    } catch (error) {
-      console.error("Failed to fetch users:", error);
-      toast.error("Failed to load users");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // Fetch roles from API
-  const fetchRoles = async () => {
-    try {
-      const response = await api.get<{ roles: Role[] }>("/users/roles/");
-      setRoles(response.data.roles);
-    } catch (error) {
-      console.error("Failed to fetch roles:", error);
-      toast.error("Failed to load roles");
-    }
-  };
-
   // Load data on mount
   useEffect(() => {
-    fetchUsers();
-    fetchRoles();
-  }, []);
+    dispatch(fetchUsers());
+    dispatch(fetchRoles());
+  }, [dispatch]);
 
   // Handle toggle user active status
   const handleToggleStatus = async (userId: number, isActive: boolean) => {
     try {
-      const endpoint = isActive
-        ? `/users/${userId}/deactivate/`
-        : `/users/${userId}/activate/`;
-      await api.post(endpoint);
+      await dispatch(toggleUserStatus({ userId, isActive })).unwrap();
       toast.success(isActive ? "User deactivated" : "User activated");
-      fetchUsers(); // Refresh list
     } catch (error) {
       console.error("Failed to toggle user status:", error);
       toast.error("Failed to update user status");
@@ -295,7 +269,7 @@ const UserManagementPage: React.FC = () => {
       {showCreateModal && (
         <UserModal
           onClose={() => setShowCreateModal(false)}
-          onSuccess={fetchUsers}
+          onSuccess={() => dispatch(fetchUsers())}
           roles={roles}
         />
       )}
@@ -307,7 +281,7 @@ const UserManagementPage: React.FC = () => {
             setShowEditModal(false);
             setSelectedUser(null);
           }}
-          onSuccess={fetchUsers}
+          onSuccess={() => dispatch(fetchUsers())}
           roles={roles}
         />
       )}
@@ -329,6 +303,7 @@ const UserModal: React.FC<UserModalProps> = ({
   roles,
 }) => {
   const { t } = useTranslation();
+  const dispatch = useAppDispatch();
   const isEdit = !!user;
 
   const [formData, setFormData] = useState({
@@ -347,6 +322,8 @@ const UserModal: React.FC<UserModalProps> = ({
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  const isClientRole = formData.role === "CLIENT";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -374,24 +351,21 @@ const UserModal: React.FC<UserModalProps> = ({
         if (formData.department !== user.department)
           updateData.department = formData.department;
 
-        await api.patch(`/users/${user.id}/`, updateData);
+        await dispatch(
+          updateUser({ userId: user.id, userData: updateData })
+        ).unwrap();
         toast.success("User updated successfully");
       } else {
         // Create new user
-        await api.post("/users/", formData);
+        await dispatch(createUser(formData)).unwrap();
         toast.success("User created successfully");
       }
       onSuccess();
       onClose();
     } catch (error: unknown) {
       console.error("Failed to save user:", error);
-      const axiosError = error as {
-        response?: { data?: { detail?: string; [key: string]: unknown } };
-      };
       const errorMsg =
-        axiosError?.response?.data?.detail ||
-        JSON.stringify(axiosError?.response?.data) ||
-        "Failed to save user";
+        typeof error === "string" ? error : "Failed to save user";
       toast.error(errorMsg);
     } finally {
       setLoading(false);
@@ -401,7 +375,7 @@ const UserModal: React.FC<UserModalProps> = ({
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg shadow-xl w-full max-w-164 max-h-[90vh] overflow-y-auto">
-        <div className="sticky top-0 bg-white px-6 py-4 border-b border-[#E1E4EA] flex items-center justify-between">
+        <div className="sticky top-0 bg-white px-6 py-4 border-b border-[#E1E4EA] flex items-center justify-between z-50">
           <h2 className="text-xl font-semibold text-dark">
             {isEdit ? "Edit User" : t("userManagement.createNewUser")}
           </h2>
@@ -423,68 +397,48 @@ const UserModal: React.FC<UserModalProps> = ({
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4">
           {/* Username */}
-          <div>
-            <label className="block text-sm font-medium text-label mb-2">
-              {t("userManagement.username")}
-            </label>
-            <input
-              type="text"
-              value={formData.username}
-              onChange={(e) =>
-                setFormData({ ...formData, username: e.target.value })
-              }
-              disabled={isEdit}
-              required
-              className="w-full px-4 py-2.5 border border-[#E1E4EA] rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors text-dark placeholder:text-placeholder disabled:bg-gray-50"
-            />
-          </div>
+          <Input
+            label={t("userManagement.username")}
+            type="text"
+            value={formData.username}
+            onChange={(value) => setFormData({ ...formData, username: value })}
+            placeholder="Enter username"
+            disabled={isEdit}
+            required
+          />
 
           {/* Email */}
-          <div>
-            <label className="block text-sm font-medium text-label mb-2">
-              {t("userManagement.email")}
-            </label>
-            <input
-              type="email"
-              value={formData.email}
-              onChange={(e) =>
-                setFormData({ ...formData, email: e.target.value })
-              }
-              disabled={isEdit}
-              required
-              className="w-full px-4 py-2.5 border border-[#E1E4EA] rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors text-dark placeholder:text-placeholder disabled:bg-gray-50"
-            />
-          </div>
+          <Input
+            label={t("userManagement.email")}
+            type="email"
+            value={formData.email}
+            onChange={(value) => setFormData({ ...formData, email: value })}
+            placeholder="Enter email address"
+            disabled={isEdit}
+            required
+          />
 
           {/* First Name & Last Name */}
           <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-label mb-2">
-                {t("userManagement.firstName")}
-              </label>
-              <input
-                type="text"
-                value={formData.first_name}
-                onChange={(e) =>
-                  setFormData({ ...formData, first_name: e.target.value })
-                }
-                required
-                className="w-full px-4 py-2.5 border border-[#E1E4EA] rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors text-dark"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-label mb-2">
-                {t("userManagement.lastName")}
-              </label>
-              <input
-                type="text"
-                value={formData.last_name}
-                onChange={(e) =>
-                  setFormData({ ...formData, last_name: e.target.value })
-                }
-                className="w-full px-4 py-2.5 border border-[#E1E4EA] rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors text-dark"
-              />
-            </div>
+            <Input
+              label={t("userManagement.firstName")}
+              type="text"
+              value={formData.first_name}
+              onChange={(value) =>
+                setFormData({ ...formData, first_name: value })
+              }
+              placeholder="Enter first name"
+              required
+            />
+            <Input
+              label={t("userManagement.lastName")}
+              type="text"
+              value={formData.last_name}
+              onChange={(value) =>
+                setFormData({ ...formData, last_name: value })
+              }
+              placeholder="Enter last name"
+            />
           </div>
 
           {/* Role */}
@@ -501,104 +455,77 @@ const UserModal: React.FC<UserModalProps> = ({
             noResultsText="No roles found"
           />
 
-          {/* Phone Numbers */}
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-label mb-2">
-                {t("userManagement.phone")}
-              </label>
-              <input
+          {/* Phone Numbers - Only show if NOT CLIENT */}
+          {!isClientRole && (
+            <div className="grid grid-cols-2 gap-4">
+              <Input
+                label={t("userManagement.phone")}
                 type="tel"
                 value={formData.phone_number}
-                onChange={(e) =>
-                  setFormData({ ...formData, phone_number: e.target.value })
+                onChange={(value) =>
+                  setFormData({ ...formData, phone_number: value })
                 }
-                className="w-full px-4 py-2.5 border border-[#E1E4EA] rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors text-dark"
+                placeholder="Enter phone number"
               />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-label mb-2">
-                WhatsApp Number
-              </label>
-              <input
+              <Input
+                label="WhatsApp Number"
                 type="tel"
                 value={formData.whatsapp_number}
-                onChange={(e) =>
-                  setFormData({ ...formData, whatsapp_number: e.target.value })
+                onChange={(value) =>
+                  setFormData({ ...formData, whatsapp_number: value })
                 }
-                className="w-full px-4 py-2.5 border border-[#E1E4EA] rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors text-dark"
+                placeholder="Enter WhatsApp number"
               />
             </div>
-          </div>
+          )}
 
-          {/* Department */}
-          <div>
-            <label className="block text-sm font-medium text-label mb-2">
-              Department
-            </label>
-            <input
+          {/* Department - Only show if NOT CLIENT */}
+          {!isClientRole && (
+            <Input
+              label="Department"
               type="text"
               value={formData.department}
-              onChange={(e) =>
-                setFormData({ ...formData, department: e.target.value })
+              onChange={(value) =>
+                setFormData({ ...formData, department: value })
               }
-              className="w-full px-4 py-2.5 border border-[#E1E4EA] rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors text-dark"
+              placeholder="Enter department"
             />
-          </div>
+          )}
 
           {/* Passwords - only for create */}
           {!isEdit && (
             <>
-              <div>
-                <label className="block text-sm font-medium text-label mb-2">
-                  Password
-                </label>
-                <div className="relative">
-                  <input
-                    type={showPassword ? "text" : "password"}
-                    value={formData.password}
-                    onChange={(e) =>
-                      setFormData({ ...formData, password: e.target.value })
-                    }
-                    required
-                    className="w-full px-4 py-2.5 border border-[#E1E4EA] rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors text-dark pr-10"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray hover:text-dark"
-                  >
-                    {showPassword ? "👁️" : "👁️‍🗨️"}
-                  </button>
-                </div>
-              </div>
+              <Input
+                label="Password"
+                type={showPassword ? "text" : "password"}
+                value={formData.password}
+                onChange={(value) =>
+                  setFormData({ ...formData, password: value })
+                }
+                placeholder="Enter password"
+                icon={showPassword ? <EyeSlashIcon /> : <EyeIcon />}
+                onIconClick={() => setShowPassword(!showPassword)}
+                required
+              />
 
-              <div>
-                <label className="block text-sm font-medium text-label mb-2">
-                  Confirm Password
-                </label>
-                <div className="relative">
-                  <input
-                    type={showConfirmPassword ? "text" : "password"}
-                    value={formData.password_confirm}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        password_confirm: e.target.value,
-                      })
-                    }
-                    required
-                    className="w-full px-4 py-2.5 border border-[#E1E4EA] rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors text-dark pr-10"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray hover:text-dark"
-                  >
-                    {showConfirmPassword ? "👁️" : "👁️‍🗨️"}
-                  </button>
-                </div>
-              </div>
+              <Input
+                label="Confirm Password"
+                type={showConfirmPassword ? "text" : "password"}
+                value={formData.password_confirm}
+                onChange={(value) =>
+                  setFormData({ ...formData, password_confirm: value })
+                }
+                placeholder="Confirm your password"
+                icon={showConfirmPassword ? <EyeSlashIcon /> : <EyeIcon />}
+                onIconClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                error={
+                  formData.password_confirm &&
+                  formData.password !== formData.password_confirm
+                    ? "Passwords do not match"
+                    : undefined
+                }
+                required
+              />
             </>
           )}
 

@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { useScrollLock } from "../../../hooks/useScrollLock";
-import { SearchableSelect } from "../../../components/shared";
-import api from "../../../services/api";
+import { SearchableSelect, Input } from "../../../components/shared";
+import { EyeIcon, EyeSlashIcon } from "../../../assets/icons";
+import { useAppDispatch, useAppSelector } from "../../../store/hooks";
+import { fetchRoles, createUser } from "../../../store/slices/userSlice";
 import toast from "react-hot-toast";
 
 export interface OrgAccountFormData {
@@ -12,19 +14,7 @@ export interface OrgAccountFormData {
   first_name: string;
   last_name: string;
   role: string;
-  phone_number: string;
-  whatsapp_number: string;
-  department: string;
   organization: number;
-}
-
-interface Role {
-  value: string;
-  display: string;
-}
-
-interface RolesResponse {
-  roles: Role[];
 }
 
 interface AddOrgAccountModalProps {
@@ -40,6 +30,9 @@ const AddOrgAccountModal: React.FC<AddOrgAccountModalProps> = ({
   onSubmit,
   organizationId,
 }) => {
+  const dispatch = useAppDispatch();
+  const { roles: rolesData } = useAppSelector((state) => state.users);
+
   const [formData, setFormData] = useState<OrgAccountFormData>({
     username: "",
     email: "",
@@ -48,40 +41,28 @@ const AddOrgAccountModal: React.FC<AddOrgAccountModalProps> = ({
     first_name: "",
     last_name: "",
     role: "CLIENT",
-    phone_number: "",
-    whatsapp_number: "",
-    department: "",
     organization: organizationId,
   });
 
-  const [roles, setRoles] = useState<Array<{ value: string; label: string }>>(
-    []
-  );
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   // Lock scroll when modal is open
   useScrollLock(isOpen);
 
-  // Fetch roles from API
+  // Fetch roles from Redux
   useEffect(() => {
-    const fetchRoles = async () => {
-      try {
-        const response = await api.get<RolesResponse>("/users/roles/");
-        const roleOptions = response.data.roles.map((role) => ({
-          value: role.value,
-          label: role.display,
-        }));
-        setRoles(roleOptions);
-      } catch (error) {
-        console.error("Failed to fetch roles:", error);
-        toast.error("Failed to load roles");
-      }
-    };
-
     if (isOpen) {
-      fetchRoles();
+      dispatch(fetchRoles());
     }
-  }, [isOpen]);
+  }, [isOpen, dispatch]);
+
+  // Convert roles to options format
+  const roles = rolesData.map((role) => ({
+    value: role.value,
+    label: role.display,
+  }));
 
   // Update organization ID when it changes
   useEffect(() => {
@@ -111,7 +92,7 @@ const AddOrgAccountModal: React.FC<AddOrgAccountModalProps> = ({
 
     setLoading(true);
     try {
-      await api.post("/auth/users", formData);
+      await dispatch(createUser(formData)).unwrap();
       toast.success("Organization account created successfully");
       onSubmit(formData);
       onClose();
@@ -124,23 +105,12 @@ const AddOrgAccountModal: React.FC<AddOrgAccountModalProps> = ({
         first_name: "",
         last_name: "",
         role: "CLIENT",
-        phone_number: "",
-        whatsapp_number: "",
-        department: "",
         organization: organizationId,
       });
     } catch (error: unknown) {
       console.error("Failed to create organization account:", error);
-      let errorMessage = "Failed to create account";
-      if (error && typeof error === "object" && "response" in error) {
-        const axiosError = error as {
-          response?: { data?: { detail?: string; message?: string } };
-        };
-        errorMessage =
-          axiosError.response?.data?.detail ||
-          axiosError.response?.data?.message ||
-          errorMessage;
-      }
+      const errorMessage =
+        typeof error === "string" ? error : "Failed to create account";
       toast.error(errorMessage);
     } finally {
       setLoading(false);
@@ -182,108 +152,74 @@ const AddOrgAccountModal: React.FC<AddOrgAccountModalProps> = ({
           <form onSubmit={handleSubmit} className="p-6">
             <div className="grid grid-cols-2 gap-4">
               {/* Username */}
-              <div>
-                <label className="block text-sm font-semibold text-dark mb-2">
-                  Username
-                </label>
-                <input
-                  type="text"
-                  value={formData.username}
-                  onChange={(e) => handleChange("username", e.target.value)}
-                  placeholder="Enter Username"
-                  className="w-full px-4 py-3 rounded-xl border border-[#E1E4EA] 
-                           focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary
-                           text-sm placeholder-gray transition-all"
-                  required
-                />
-              </div>
+              <Input
+                label="Username"
+                type="text"
+                value={formData.username}
+                onChange={(value) => handleChange("username", value)}
+                placeholder="Enter Username"
+                required
+              />
 
               {/* Email */}
-              <div>
-                <label className="block text-sm font-semibold text-dark mb-2">
-                  Email
-                </label>
-                <input
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => handleChange("email", e.target.value)}
-                  placeholder="Enter Email"
-                  className="w-full px-4 py-3 rounded-xl border border-[#E1E4EA] 
-                           focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary
-                           text-sm placeholder-gray transition-all"
-                  required
-                />
-              </div>
+              <Input
+                label="Email"
+                type="email"
+                value={formData.email}
+                onChange={(value) => handleChange("email", value)}
+                placeholder="Enter Email"
+                required
+              />
 
               {/* Password */}
-              <div>
-                <label className="block text-sm font-semibold text-dark mb-2">
-                  Password
-                </label>
-                <input
-                  type="password"
-                  value={formData.password}
-                  onChange={(e) => handleChange("password", e.target.value)}
-                  placeholder="Enter Password"
-                  className="w-full px-4 py-3 rounded-xl border border-[#E1E4EA] 
-                           focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary
-                           text-sm placeholder-gray transition-all"
-                  required
-                />
-              </div>
+              <Input
+                label="Password"
+                type={showPassword ? "text" : "password"}
+                value={formData.password}
+                onChange={(value) => handleChange("password", value)}
+                placeholder="Enter Password"
+                icon={showPassword ? <EyeSlashIcon /> : <EyeIcon />}
+                onIconClick={() => setShowPassword(!showPassword)}
+                required
+              />
 
               {/* Confirm Password */}
-              <div>
-                <label className="block text-sm font-semibold text-dark mb-2">
-                  Confirm Password
-                </label>
-                <input
-                  type="password"
-                  value={formData.password_confirm}
-                  onChange={(e) =>
-                    handleChange("password_confirm", e.target.value)
-                  }
-                  placeholder="Confirm Password"
-                  className="w-full px-4 py-3 rounded-xl border border-[#E1E4EA] 
-                           focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary
-                           text-sm placeholder-gray transition-all"
-                  required
-                />
-              </div>
+              <Input
+                label="Confirm Password"
+                type={showConfirmPassword ? "text" : "password"}
+                value={formData.password_confirm}
+                onChange={(value) => handleChange("password_confirm", value)}
+                placeholder="Confirm Password"
+                icon={showConfirmPassword ? <EyeSlashIcon /> : <EyeIcon />}
+                onIconClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                error={
+                  formData.password_confirm &&
+                  formData.password !== formData.password_confirm
+                    ? "Passwords do not match"
+                    : undefined
+                }
+                required
+              />
 
               {/* First Name */}
-              <div>
-                <label className="block text-sm font-semibold text-dark mb-2">
-                  First Name
-                </label>
-                <input
-                  type="text"
-                  value={formData.first_name}
-                  onChange={(e) => handleChange("first_name", e.target.value)}
-                  placeholder="Enter First Name"
-                  className="w-full px-4 py-3 rounded-xl border border-[#E1E4EA] 
-                           focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary
-                           text-sm placeholder-gray transition-all"
-                  required
-                />
-              </div>
+              <Input
+                label="First Name"
+                type="text"
+                value={formData.first_name}
+                onChange={(value) => handleChange("first_name", value)}
+                placeholder="Enter First Name"
+                required
+              />
 
               {/* Last Name */}
-              <div>
-                <label className="block text-sm font-semibold text-dark mb-2">
-                  Last Name
-                </label>
-                <input
-                  type="text"
-                  value={formData.last_name}
-                  onChange={(e) => handleChange("last_name", e.target.value)}
-                  placeholder="Enter Last Name"
-                  className="w-full px-4 py-3 rounded-xl border border-[#E1E4EA] 
-                           focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary
-                           text-sm placeholder-gray transition-all"
-                  required
-                />
-              </div>
+              <Input
+                label="Last Name"
+                type="text"
+                value={formData.last_name}
+                onChange={(value) => handleChange("last_name", value)}
+                placeholder="Enter Last Name"
+                required
+              />
 
               {/* Role - Using SearchableSelect */}
               <div>
@@ -299,56 +235,6 @@ const AddOrgAccountModal: React.FC<AddOrgAccountModalProps> = ({
                 <p className="text-xs text-gray mt-1">
                   Role is set to CLIENT for organization users
                 </p>
-              </div>
-
-              {/* Phone */}
-              <div>
-                <label className="block text-sm font-semibold text-dark mb-2">
-                  Phone
-                </label>
-                <input
-                  type="tel"
-                  value={formData.phone_number}
-                  onChange={(e) => handleChange("phone_number", e.target.value)}
-                  placeholder="Enter Phone Number"
-                  className="w-full px-4 py-3 rounded-xl border border-[#E1E4EA] 
-                           focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary
-                           text-sm placeholder-gray transition-all"
-                />
-              </div>
-
-              {/* WhatsApp */}
-              <div>
-                <label className="block text-sm font-semibold text-dark mb-2">
-                  WhatsApp
-                </label>
-                <input
-                  type="tel"
-                  value={formData.whatsapp_number}
-                  onChange={(e) =>
-                    handleChange("whatsapp_number", e.target.value)
-                  }
-                  placeholder="Enter WhatsApp Number"
-                  className="w-full px-4 py-3 rounded-xl border border-[#E1E4EA] 
-                           focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary
-                           text-sm placeholder-gray transition-all"
-                />
-              </div>
-
-              {/* Department */}
-              <div>
-                <label className="block text-sm font-semibold text-dark mb-2">
-                  Department
-                </label>
-                <input
-                  type="text"
-                  value={formData.department}
-                  onChange={(e) => handleChange("department", e.target.value)}
-                  placeholder="Enter Department"
-                  className="w-full px-4 py-3 rounded-xl border border-[#E1E4EA] 
-                           focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary
-                           text-sm placeholder-gray transition-all"
-                />
               </div>
             </div>
 

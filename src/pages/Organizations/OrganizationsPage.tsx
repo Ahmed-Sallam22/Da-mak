@@ -8,7 +8,12 @@ import PageHeader from "../../components/shared/PageHeader/PageHeader";
 import CreateOrganizationModal from "./components/CreateOrganizationModal";
 import { useNavigate } from "react-router-dom";
 import { usePageTitle } from "../../hooks/usePageTitle";
-import api from "../../services/api";
+import { useAppDispatch, useAppSelector } from "../../store/hooks";
+import {
+  fetchOrganizations,
+  toggleOrganizationStatus,
+  createOrganization,
+} from "../../store/slices/organizationSlice";
 import toast from "react-hot-toast";
 
 interface Organization {
@@ -30,53 +35,34 @@ interface Organization {
   updated_at: string;
 }
 
-interface OrganizationsResponse {
-  count: number;
-  next: string | null;
-  previous: string | null;
-  results: Organization[];
-}
-
 const OrganizationsPage: React.FC = () => {
   usePageTitle("المؤسسات");
   const navigate = useNavigate();
+  const dispatch = useAppDispatch();
+
+  // Redux state
+  const { organizations, loading } = useAppSelector(
+    (state) => state.organizations
+  );
+
+  // Local state
   const [searchValue, setSearchValue] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [organizations, setOrganizations] = useState<Organization[]>([]);
-  const [loading, setLoading] = useState(false);
-
-  // Fetch organizations from API
-  const fetchOrganizations = async () => {
-    setLoading(true);
-    try {
-      const response = await api.get<OrganizationsResponse>("/organizations/");
-      setOrganizations(response.data.results);
-    } catch (error) {
-      console.error("Failed to fetch organizations:", error);
-      toast.error("Failed to load organizations");
-    } finally {
-      setLoading(false);
-    }
-  };
 
   // Load organizations on mount
   useEffect(() => {
-    fetchOrganizations();
-  }, []);
+    dispatch(fetchOrganizations());
+  }, [dispatch]);
 
   // Handle toggle organization status
   const handleToggleStatus = async (orgId: number, isActive: boolean) => {
     try {
-      const endpoint = isActive
-        ? `/organizations/${orgId}/deactivate/`
-        : `/organizations/${orgId}/activate/`;
-      await api.post(endpoint);
+      await dispatch(toggleOrganizationStatus({ orgId, isActive })).unwrap();
       toast.success(
         isActive ? "Organization deactivated" : "Organization activated"
       );
-      fetchOrganizations(); // Refresh list
     } catch (error) {
       console.error("Failed to toggle organization status:", error);
       toast.error("Failed to update organization status");
@@ -212,19 +198,17 @@ const OrganizationsPage: React.FC = () => {
     notify_on_resolved: boolean;
   }) => {
     try {
-      await api.post("/organizations/", data);
+      const result = await dispatch(createOrganization(data)).unwrap();
       toast.success("Organization created successfully");
       setIsModalOpen(false);
-      fetchOrganizations(); // Refresh list
+      // Navigate to the new organization's details page
+      if (result.id) {
+        navigate(`/organizations/${result.id}`);
+      }
     } catch (error) {
       console.error("Failed to create organization:", error);
-      const axiosError = error as {
-        response?: { data?: { detail?: string; [key: string]: unknown } };
-      };
       const errorMsg =
-        axiosError?.response?.data?.detail ||
-        JSON.stringify(axiosError?.response?.data) ||
-        "Failed to create organization";
+        typeof error === "string" ? error : "Failed to create organization";
       toast.error(errorMsg);
     }
   };
