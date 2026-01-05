@@ -78,7 +78,7 @@ const TicketsBoardPage: React.FC = () => {
 
   // Get user role
   const userRole = user?.role?.toUpperCase();
-  const isDeveloper = userRole === "DEVELOPER";
+  const isDeveloper = userRole === "SUPPORT" || userRole === "DEVELOPER";
   const isClient = userRole === "CLIENT";
   const isAdmin =
     userRole === "ADMIN" ||
