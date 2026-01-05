@@ -111,7 +111,7 @@ const AddOrgAccountModal: React.FC<AddOrgAccountModalProps> = ({
 
     setLoading(true);
     try {
-      await api.post("/auth/users/create-organization-user/", formData);
+      await api.post("/auth/users", formData);
       toast.success("Organization account created successfully");
       onSubmit(formData);
       onClose();
